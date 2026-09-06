@@ -9,8 +9,20 @@ import os
 import subprocess
 import sys
 from datetime import datetime, timezone
+from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any, Sequence
+
+from run_state import DEPENDENCY_SATISFIED
+
+# Regenerable build artifacts never count as "uncommitted changes": any worktree
+# that has run tests once would otherwise read as dirty forever, blocking
+# cleanup and firing preserve-worktree recommendations for every ticket.
+ARTIFACT_PATTERNS = (
+    "__pycache__", "*.pyc", "*.pyo", ".pytest_cache", ".mypy_cache", ".ruff_cache",
+    ".tox", ".venv", "venv", "node_modules", "dist", "build", "target", ".eggs",
+    "*.egg-info", ".coverage", "coverage.xml", ".DS_Store",
+)
 
 
 def now() -> str:
@@ -43,7 +55,10 @@ def recompute_frontier(state: dict[str, Any]) -> list[str]:
         if ticket.get("status") not in {"pending", "ready"}:
             continue
         blockers = ticket.get("blockers", [])
-        is_ready = all(tickets.get(blocker, {}).get("status") in {"verified", "skipped"} for blocker in blockers)
+        # Same satisfied-set as run_state.py: a reconciliation that marks a blocker
+        # integrated must unlock its dependents exactly as a normal transition would,
+        # or every resume on a partly integrated run reports an empty frontier.
+        is_ready = all(tickets.get(blocker, {}).get("status") in DEPENDENCY_SATISFIED for blocker in blockers)
         ticket["status"] = "ready" if is_ready else "pending"
         if is_ready:
             ready.append(ticket_id)
@@ -100,13 +115,41 @@ def is_ancestor(repo: Path, ancestor: str | None, descendant: str) -> bool:
     return git(repo, ["merge-base", "--is-ancestor", ancestor, descendant], check=False).returncode == 0
 
 
+def path_is_artifact(path: str) -> bool:
+    path = path.strip().strip('"')
+    # Rename lines carry "old -> new"; the new side is what exists on disk.
+    if " -> " in path:
+        path = path.split(" -> ", 1)[1]
+    parts = [part for part in path.split("/") if part]
+    if not parts:
+        return False
+    for pattern in ARTIFACT_PATTERNS:
+        if pattern.startswith("*"):
+            if fnmatch(parts[-1], pattern) or fnmatch(path, pattern):
+                return True
+        elif any(fnmatch(part, pattern) for part in parts):
+            return True
+    return False
+
+
 def is_dirty(path: str | None) -> bool | None:
+    """True when the worktree holds real uncommitted changes.
+
+    Tracked modifications and non-artifact untracked files count; regenerable
+    build artifacts (``__pycache__``, caches, build output) do not.
+    """
     if not path or not Path(path).is_dir():
         return None
     result = git(Path(path), ["status", "--porcelain"], check=False)
     if result.returncode != 0:
         return None
-    return bool(result.stdout.strip())
+    for line in result.stdout.splitlines():
+        if line.startswith("??"):
+            if not path_is_artifact(line[3:]):
+                return True
+        else:
+            return True
+    return False
 
 
 def reconcile(state_path: Path, apply: bool) -> dict[str, Any]:
@@ -123,10 +166,24 @@ def reconcile(state_path: Path, apply: bool) -> dict[str, Any]:
     for ticket_id, ticket in state.get("tickets", {}).items():
         branch_sha = branch_tip(repo, ticket.get("branch"))
         recorded_head = ticket.get("head_sha")
+        integrated_sha = ticket.get("integrated_sha")
         effective_head = recorded_head if commit_exists(repo, recorded_head) else branch_sha
         recorded_worktree = ticket.get("worktree")
         worktree_present = bool(recorded_worktree and str(Path(recorded_worktree).resolve()) in known_worktrees)
-        integrated = is_ancestor(repo, effective_head, integration_head)
+        # Cherry-pick re-commits parallel-wave work under new SHAs, so the
+        # worker's head can fail the ancestor test even though the work is fully
+        # integrated. Any recorded commit reachable from the integration branch
+        # proves integration; prefer the explicit integration SHA, then the
+        # worker head, then the branch tip.
+        integration_evidence = next(
+            (
+                sha
+                for sha in (integrated_sha, recorded_head, branch_sha)
+                if sha and commit_exists(repo, sha) and is_ancestor(repo, sha, integration_head)
+            ),
+            None,
+        )
+        integrated = integration_evidence is not None
         dirty = is_dirty(recorded_worktree) if worktree_present else None
 
         recommendations: list[str] = []
@@ -144,6 +201,7 @@ def reconcile(state_path: Path, apply: bool) -> dict[str, Any]:
             "branch_tip": branch_sha,
             "recorded_head": recorded_head,
             "effective_head": effective_head,
+            "integration_evidence": integration_evidence,
             "worktree_present": worktree_present,
             "worktree_dirty": dirty,
             "integrated": integrated,
@@ -156,7 +214,8 @@ def reconcile(state_path: Path, apply: bool) -> dict[str, Any]:
                 changes.append(f"{ticket_id}: recorded branch tip as head_sha")
             if integrated and ticket.get("status") not in {"integrated", "verified", "skipped"}:
                 ticket["status"] = "integrated"
-                ticket["integrated_sha"] = integration_head
+                if not integrated_sha:
+                    ticket["integrated_sha"] = integration_evidence
                 changes.append(f"{ticket_id}: marked integrated")
 
     report = {
@@ -185,6 +244,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--apply", action="store_true", help="Apply safe state repairs and append a ledger event")
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Print only tickets with recommendations and applied changes instead of the full report",
+    )
     args = parser.parse_args()
 
     try:
@@ -192,7 +256,20 @@ def main() -> int:
     except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
-    print(json.dumps(report, indent=2))
+    if args.quiet:
+        exceptions = {
+            ticket_id: ticket["recommendations"]
+            for ticket_id, ticket in report["tickets"].items()
+            if ticket["recommendations"]
+        }
+        print(json.dumps({
+            "integration_head": report["integration_head"],
+            "applied": report["applied"],
+            "changes": report["changes"],
+            "tickets_with_recommendations": exceptions,
+        }))
+    else:
+        print(json.dumps(report, indent=2))
     return 0
 
 

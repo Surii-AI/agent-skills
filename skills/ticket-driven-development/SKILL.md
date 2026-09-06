@@ -21,7 +21,7 @@ Act as the **controller**. Convert an approved directory of Markdown tickets int
 7. Use deterministic Git commands for clean integration. Use a conflict agent only after Git demonstrates a conflict.
 8. Cap ticket repair at two rounds. Stop, split, escalate, or ask for a decision after the cap.
 9. Persist `state.json` and append-only `ledger.md`. Never use conversation memory as the run database.
-10. Mark a ticket complete only after its change is reachable from the integration branch and its applicable checkpoint passes.
+10. Mark a ticket complete only after its change is reachable from the integration branch and its applicable checkpoint passes. Terminal statuses are canonical, not stylistic: a ticket with a commit ends `integrated` (record checkpoint outcomes in the ledger and review verdict, not by restamping the status); a ticket whose entire output is unversioned artifacts (docs, sign-off packages) ends `verified` with its report as evidence — never `integrated` with no commit, and never by working in the user's checkout.
 11. A source status claiming completion is a claim, not evidence. Corroborate it against the repository before trusting it; never redispatch corroborated work, and never schedule dependents on an uncorroborated claim.
 12. Mutate the repository only when open work exists. When corroboration leaves no incomplete ticket, end the run with zero repository changes.
 
@@ -56,7 +56,7 @@ Choose an ignored run directory such as `.scratch/<feature>/runs/<run-id>/`, and
 Run:
 
 ```bash
-python <skill-dir>/scripts/index_tickets.py <ticket-dir> \
+python3 <skill-dir>/scripts/index_tickets.py <ticket-dir> \
   --output <run-dir>/ticket-index.json
 ```
 
@@ -76,7 +76,7 @@ If corroboration leaves no incomplete ticket, stop and report the directory as a
 With open work confirmed, create a branch such as `agent/<feature>/integration` at the recorded base SHA. Prefer a real integration worktree that isolates the run from the user checkout:
 
 ```bash
-python <skill-dir>/scripts/make_worktree.py \
+python3 <skill-dir>/scripts/make_worktree.py \
   --repo <repo> \
   --path <integration-worktree> \
   --branch agent/<feature>/integration \
@@ -85,6 +85,8 @@ python <skill-dir>/scripts/make_worktree.py \
 ```
 
 If the active environment cannot move the controller into that worktree, keep the controller read-only in its original checkout and use absolute paths for all operations in the integration worktree. Use environment-native isolated children only when they are based on this integration worktree; otherwise use explicit child worktrees.
+
+A second checkout is a different environment, not just a different path: tooling keyed to checkout identity — compose project names, fixed ports, per-repo caches — can be healthy in the user checkout yet broken from the integration worktree. After creating it, rerun the service availability command from inside the worktree and record the outcome. When a duplicate service would collide with the healthy one (two compose projects claiming one database port, for example), point the worktree at the already-healthy shared service instead of starting a duplicate, and record that decision.
 
 ### 6. Initialize durable state
 
@@ -97,7 +99,7 @@ On an existing run, do not initialize again. Follow the resume protocol in `refe
 A ticket is ready only when every blocker is integrated and its required checkpoint passed. Infer missing conflict domains from a narrow repository inspection. Read `references/scheduling.md` and choose:
 
 - **Sequential:** one fresh worker in the integration worktree when only one ticket is ready, domains overlap, or risk is high.
-- **Parallel:** at most three fresh workers in isolated child workspaces when at least two dependency-independent tickets have confidently disjoint conflict domains.
+- **Parallel:** at most four fresh workers by default — or the concurrency cap the user declared at invocation — in isolated child workspaces when at least two dependency-independent tickets have confidently disjoint conflict domains. A user-declared cap is authoritative: apply it without demanding prior-run evidence, but still lower it when the repository or test environment is fragile, and never exceed the invariants (no concurrent writers in one checkout, disjoint domains only).
 
 Record the chosen wave base. Start every parallel child from that exact integration commit.
 
@@ -109,7 +111,7 @@ Do not supply the full interview, all tickets, unrelated reports, or accumulated
 
 Use the adapter in `references/adapters.md`. Prefer structured return fields when supported. A worker may finish as `COMPLETE`, `BLOCKED`, `NEEDS_CONTEXT`, `NEEDS_SPLIT`, or `FAILED`.
 
-If a dispatched worker stalls — no progress and no result within a reasonable window — cancel it, preserve any partial workspace for inspection, and either redispatch once from a fresh worker or complete that step yourself in the controller. Record the intervention and its reason in the ledger either way; a silently absorbed stall is a lost audit event.
+If a dispatched worker stalls — no progress and no result — cancel it after a bounded window: twice the median duration of completed workers this run, with a floor of ten minutes; a window the user declared at invocation overrides the default. Preserve any partial workspace for inspection, and either redispatch once from a fresh worker or complete that step yourself in the controller. Record the intervention, its window, and its reason in the ledger either way; a silently absorbed stall is a lost audit event.
 
 ### 9. Verify and integrate each result
 
@@ -120,7 +122,7 @@ For a complete result:
 3. Package the complete change:
 
 ```bash
-python <skill-dir>/scripts/package_diff.py \
+python3 <skill-dir>/scripts/package_diff.py \
   --repo <workspace> \
   --base <ticket-base-sha> \
   --head <ticket-head-sha> \
@@ -129,8 +131,10 @@ python <skill-dir>/scripts/package_diff.py \
 ```
 
 4. Apply the risk policy in `references/verification-policy.md`. Render `templates/reviewer-prompt.md` when review is required.
-5. If approved, integrate with deterministic Git. Confirm the ticket head is an ancestor of the integration head, then run the required smoke checkpoint.
-6. Persist every transition with `scripts/run_state.py transition`.
+5. If approved, integrate with deterministic Git. Confirm the ticket head is an ancestor of the integration head, then run the required smoke checkpoint — unless the worker-verified and integration trees are byte-identical (`git rev-parse <sha>^{tree}` equality), in which case record the equal tree hashes as checkpoint evidence per the elision rule in `references/verification-policy.md`.
+6. Persist every transition with `scripts/run_state.py transition --quiet`, recording measurements from the worker result at collection time — duration and context size are only reliably observable now, and backfilled numbers are guesses. `--quiet` prints a one-line summary instead of the full state JSON, which at scale is tens of KiB per call; `state.json` and the ledger remain the authoritative record.
+
+A result with no repository change integrates nothing: confirm its artifacts landed at their assigned run-directory paths and transition the ticket to `verified` with the report as evidence. A result with a commit ends `integrated`; do not restamp it `verified` after its checkpoint — record the checkpoint pass in the ledger instead.
 
 For review failure, perform no more than two repair rounds. Resume the original worker only when its workspace survives; otherwise dispatch a fresh repair worker with the exact findings and current evidence.
 
@@ -144,17 +148,17 @@ When no ticket is ready but incomplete tickets remain, diagnose an invalid state
 
 ### 11. Run the final gate
 
-Package the full original-base-to-integration-head diff. Run the configured full suite and render `templates/final-review-prompt.md` for one requirements-aware final branch review.
+Package the full original-base-to-integration-head diff. Run the configured full suite and the requirements-aware final branch review (`templates/final-review-prompt.md`) concurrently: both are read-only against the same final head, so there is no reason to serialize them. The full suite must pass at the final head — after a fix wave, rerun it only when the fix changed code.
 
 If changes are requested, perform one consolidated fix wave and one scoped re-review. Mark the run complete only when all intended tickets are integrated, required checks pass, and the final verdict is `PASS`.
 
 ### 12. Measure, report, and clean up safely
 
-Measure critical-path wall time per accepted change rather than worker count. When observable, summarize ticket duration, worker context size, agent seats, repair rounds, merge conflicts, worktree overhead, and human interventions. Treat routine worker context above 64k tokens, mandatory merger agents on clean integrations, or frequent parallel conflicts as policy failures to investigate rather than normal costs.
+Measure critical-path wall time per accepted change rather than worker count. Record duration and worker context size at collection time — `run_state.py` derives ticket duration from its recorded timestamps, and the dispatch result (on OMP, the task completion notification) is the only place token totals exist before they are gone. Summarize ticket duration, worker context size, agent seats, repair rounds, merge conflicts, worktree overhead, and human interventions. Treat routine worker context above 64k tokens, mandatory merger agents on clean integrations, or frequent parallel conflicts as policy failures to investigate rather than normal costs.
 
 Report the integration branch and head, completed tickets, exact tests, review outcomes, rulings, corroboration outcomes, deferred observations, unresolved risks, measurements, and workspace disposition. Distinguish passed, failed, and skipped checks.
 
-Offer cleanup. Remove only clean, integrated child worktrees. Never force-remove a dirty or unintegrated workspace, and never delete the run ledger or branches without explicit user instruction.
+Offer cleanup. Remove only integrated child worktrees that hold no changes beyond regenerable build artifacts (`__pycache__`, caches, `node_modules`, `dist`, build output) — artifacts are safe to destroy with `git worktree remove --force` once verified as the only residue; a workspace with real uncommitted changes is never force-removed. Never delete the run ledger or branches without explicit user instruction. Keep the run directory in the main checkout's ignored path (or outside the repository) — never inside a worktree that teardown removes — so the ledger, reports, and reviews survive cleanup as the run's audit record.
 
 ## Success contract
 

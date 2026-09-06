@@ -54,7 +54,7 @@ A completed status in the source is a claim the controller must corroborate agai
 Run:
 
 ```bash
-python scripts/index_tickets.py .scratch/<feature>/issues \
+python3 scripts/index_tickets.py .scratch/<feature>/issues \
   --output <run-dir>/ticket-index.json
 ```
 

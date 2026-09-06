@@ -27,9 +27,13 @@ TARGETS = {
         "user": Path("~/.config/opencode/skills"),
         "project": Path(".opencode/skills"),
     },
+    "zcode": {
+        "user": Path("~/.zcode/skills"),
+        "project": Path(".zcode/skills"),
+    },
     "agent": {
-        "user": Path("~/.agent/skills"),
-        "project": Path(".agent/skills"),
+        "user": Path("~/.agents/skills"),
+        "project": Path(".agents/skills"),
     },
 }
 

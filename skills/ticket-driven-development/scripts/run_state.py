@@ -6,12 +6,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Sequence
 
 DEPENDENCY_SATISFIED = {"verified", "integrated", "skipped"}
 
@@ -29,6 +29,10 @@ STATUSES = {
     "failed",
     "skipped",
 }
+
+FINISHED_STATUSES = {"implemented", "blocked", "failed", "verified", "skipped", "integrated"}
+SUCCESS_TERMINAL = {"integrated", "verified", "skipped"}
+SHA_PATTERN = re.compile(r"^[0-9a-f]{7,40}$")
 
 
 def now() -> str:
@@ -113,6 +117,7 @@ def init_state(args: argparse.Namespace) -> dict[str, Any]:
             "retry_count": 0,
             "integrated_sha": None,
             "last_error": None,
+            "repair_history": [],
             "started_at": None,
             "finished_at": None,
             "duration_ms": None,
@@ -150,6 +155,14 @@ def init_state(args: argparse.Namespace) -> dict[str, Any]:
         f"Initialized run `{state['run_id']}` with {len(tickets)} tickets.",
         {"base_sha": base_sha, "integration_branch": args.integration_branch},
     )
+    args.summary = {
+        "command": "init",
+        "run_id": state["run_id"],
+        "tickets": len(tickets),
+        "ready_frontier": state["ready_frontier"],
+        "state": str(args.state.resolve()),
+        "ledger": str(args.ledger.resolve()),
+    }
     return state
 
 
@@ -160,6 +173,25 @@ def transition(args: argparse.Namespace) -> dict[str, Any]:
     if ticket is None:
         raise RuntimeError(f"unknown ticket id: {args.ticket}")
 
+    for flag, value in (
+        ("--base-sha", args.base_sha),
+        ("--head-sha", args.head_sha),
+        ("--integrated-sha", args.integrated_sha),
+        ("--integration-head", args.integration_head),
+    ):
+        if value is not None and not SHA_PATTERN.match(value):
+            raise RuntimeError(f"{flag} must be a 7-40 hex commit SHA, got: {value!r}")
+    for flag, value in (("--report", args.report), ("--review", args.review)):
+        if value is not None and (str(value) != str(value).strip() or any(ch.isspace() for ch in str(value))):
+            raise RuntimeError(f"{flag} must be a single filesystem path with no whitespace, got: {value!r}")
+    if args.status == "integrated" and not (
+        args.integrated_sha or args.head_sha or ticket.get("integrated_sha") or ticket.get("head_sha")
+    ):
+        raise RuntimeError(
+            "status 'integrated' requires a commit reachable from the integration branch; "
+            "pass --integrated-sha or --head-sha, or use 'verified' for a ticket whose "
+            "entire output is unversioned artifacts recorded in its report"
+        )
     old_status = ticket["status"]
     ticket["status"] = args.status
     fields = {
@@ -183,8 +215,18 @@ def transition(args: argparse.Namespace) -> dict[str, Any]:
             ticket[key] = value
     if args.status == "running" and not ticket.get("started_at"):
         ticket["started_at"] = now()
-    if args.status in {"implemented", "blocked", "failed", "verified", "skipped"}:
+    if args.status in FINISHED_STATUSES:
         ticket["finished_at"] = now()
+        if args.duration_ms is None and ticket.get("started_at"):
+            started = datetime.fromisoformat(ticket["started_at"])
+            ticket["duration_ms"] = int(
+                (datetime.fromisoformat(ticket["finished_at"]) - started).total_seconds() * 1000
+            )
+    if args.status in SUCCESS_TERMINAL and ticket.get("last_error"):
+        ticket.setdefault("repair_history", []).append(
+            {"at": now(), "error": ticket["last_error"], "retry_count": ticket.get("retry_count", 0)}
+        )
+        ticket["last_error"] = None
     if args.conflict_domain:
         ticket["conflict_domains"] = list(dict.fromkeys(args.conflict_domain))
     if args.increment_retry:
@@ -207,6 +249,14 @@ def transition(args: argparse.Namespace) -> dict[str, Any]:
         "retry_count": ticket.get("retry_count", 0),
     }
     append_ledger(Path(state["ledger_path"]), "ticket-transition", args.message or f"Ticket {args.ticket}: {old_status} → {args.status}.", metadata)
+    args.summary = {
+        "command": "transition",
+        "ticket": args.ticket,
+        "from": old_status,
+        "to": args.status,
+        "ready_frontier": state["ready_frontier"],
+        "run_status": state["status"],
+    }
     return state
 
 
@@ -219,6 +269,7 @@ def record(args: argparse.Namespace) -> dict[str, Any]:
     state["updated_at"] = item["at"]
     atomic_write_json(state_path, state)
     append_ledger(Path(state["ledger_path"]), args.kind, args.message)
+    args.summary = {"command": "record", "kind": args.kind, "count": len(state[key])}
     return state
 
 
@@ -236,6 +287,11 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--integration-worktree", type=Path, required=True)
     init.add_argument("--spec", type=Path)
     init.add_argument("--run-id")
+    init.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Print a one-line summary instead of the full state JSON (state.json stays authoritative)",
+    )
     init.set_defaults(handler=init_state)
 
     change = subparsers.add_parser("transition", help="Update one ticket and append a ledger event")
@@ -261,12 +317,22 @@ def build_parser() -> argparse.ArgumentParser:
     change.add_argument("--requests", type=int)
     change.add_argument("--run-status", choices=["preflight", "running", "blocked", "failed", "complete"])
     change.add_argument("--message")
+    change.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Print a one-line summary instead of the full state JSON (state.json stays authoritative)",
+    )
     change.set_defaults(handler=transition)
 
     note = subparsers.add_parser("record", help="Record a ruling or deferred observation")
     note.add_argument("--state", type=Path, required=True)
     note.add_argument("--kind", choices=["ruling", "deferred-observation"], required=True)
     note.add_argument("--message", required=True)
+    note.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Print a one-line summary instead of the full state JSON (state.json stays authoritative)",
+    )
     note.set_defaults(handler=record)
 
     return parser
@@ -280,7 +346,10 @@ def main() -> int:
     except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
-    print(json.dumps(state, indent=2))
+    if getattr(args, "quiet", False) and getattr(args, "summary", None) is not None:
+        print(json.dumps(args.summary))
+    else:
+        print(json.dumps(state, indent=2))
     return 0
 
 

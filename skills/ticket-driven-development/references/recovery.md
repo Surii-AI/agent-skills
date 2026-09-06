@@ -35,7 +35,7 @@ python3 scripts/run_state.py init \
   --spec <spec-path>
 ```
 
-Update a ticket at every durable boundary: dispatched, implemented, reviewed, repair requested, integrated, checkpoint passed, or failed. Use `scripts/run_state.py transition`; record assumptions or deliberately deferred findings with its `record` command.
+Update a ticket at every durable boundary: dispatched, implemented, reviewed, repair requested, integrated, checkpoint passed, or failed. Use `scripts/run_state.py transition`; record assumptions or deliberately deferred findings with its `record` command. Pass `--quiet` to either command to print a one-line summary instead of the full state JSON — at scale the full JSON is tens of KiB per call and the durable files remain the authoritative record.
 
 `transition` enforces the terminal-status contract so state cannot lie: it derives `duration_ms` from the ticket's start/finish timestamps unless given an explicit value, archives a resolved `last_error` into `repair_history` when a ticket reaches `integrated`, `verified`, or `skipped`, and rejects `integrated` without a reachable commit (`--integrated-sha` or `--head-sha`). Terminal statuses are canonical: a ticket with a commit ends `integrated`; a ticket whose entire output is unversioned artifacts — docs, sign-off packages, reports — ends `verified` with its report path as evidence. Record post-integration checkpoint outcomes in the ledger rather than restamping a code ticket `verified`.
 
@@ -44,7 +44,7 @@ Update a ticket at every durable boundary: dispatched, implemented, reviewed, re
 Do not infer status from the conversation. On every resume:
 
 1. Read `state.json`, `ledger.md`, and `ticket-index.json`.
-2. Run `scripts/reconcile_run.py --state <run-dir>/state.json` without `--apply`.
+2. Run `scripts/reconcile_run.py --state <run-dir>/state.json` without `--apply` (`--quiet` prints only the tickets carrying recommendations and any applied changes, which at scale is the inspection list).
 3. Inspect every warning, dirty worktree, missing commit, and branch mismatch.
 4. If the report is correct, rerun with `--apply` to make only safe repairs.
 5. Recompute the ready frontier from the reconciled state.
@@ -67,6 +67,6 @@ Preserve failed or dirty workspaces until classified. Record the error and choos
 
 ## Cleanup
 
-Remove a child workspace only after its intended commits are integrated, applicable checks pass, and the workspace is clean. Never force-remove a worktree with uncommitted changes. Keep failed, disputed, or unintegrated workspaces until the final report identifies their disposition.
+Remove a child workspace only after its intended commits are integrated, applicable checks pass, and the workspace holds nothing beyond regenerable build artifacts — `__pycache__`, `*.pyc`, caches, `node_modules`, `dist`, `build`, `target`, virtualenvs. Artifacts are regenerated, not evidence: a worktree whose only residue is artifacts is clean for removal purposes, and `git worktree remove --force` is safe there only after confirming (`git status --porcelain`, or reconcile's artifact-aware dirty flag) that nothing else is uncommitted. Never force-remove a worktree with real uncommitted changes — modifications to tracked files or untracked files that are not artifacts. Keep failed, disputed, or unintegrated workspaces until the final report identifies their disposition.
 
 At completion, offer to remove clean child worktrees and the integration worktree. Do not delete branches or the run ledger unless the user explicitly requests it. Preserve enough evidence to audit the final branch. Before removing the integration worktree, confirm the run directory is not inside it; if it is, move the run directory out first — its teardown would otherwise destroy the audit record.

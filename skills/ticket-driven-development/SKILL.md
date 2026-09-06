@@ -132,7 +132,7 @@ python3 <skill-dir>/scripts/package_diff.py \
 
 4. Apply the risk policy in `references/verification-policy.md`. Render `templates/reviewer-prompt.md` when review is required.
 5. If approved, integrate with deterministic Git. Confirm the ticket head is an ancestor of the integration head, then run the required smoke checkpoint — unless the worker-verified and integration trees are byte-identical (`git rev-parse <sha>^{tree}` equality), in which case record the equal tree hashes as checkpoint evidence per the elision rule in `references/verification-policy.md`.
-6. Persist every transition with `scripts/run_state.py transition`, recording measurements from the worker result at collection time — duration and context size are only reliably observable now, and backfilled numbers are guesses.
+6. Persist every transition with `scripts/run_state.py transition --quiet`, recording measurements from the worker result at collection time — duration and context size are only reliably observable now, and backfilled numbers are guesses. `--quiet` prints a one-line summary instead of the full state JSON, which at scale is tens of KiB per call; `state.json` and the ledger remain the authoritative record.
 
 A result with no repository change integrates nothing: confirm its artifacts landed at their assigned run-directory paths and transition the ticket to `verified` with the report as evidence. A result with a commit ends `integrated`; do not restamp it `verified` after its checkpoint — record the checkpoint pass in the ledger instead.
 
@@ -158,7 +158,7 @@ Measure critical-path wall time per accepted change rather than worker count. Re
 
 Report the integration branch and head, completed tickets, exact tests, review outcomes, rulings, corroboration outcomes, deferred observations, unresolved risks, measurements, and workspace disposition. Distinguish passed, failed, and skipped checks.
 
-Offer cleanup. Remove only clean, integrated child worktrees. Never force-remove a dirty or unintegrated workspace, and never delete the run ledger or branches without explicit user instruction. Keep the run directory in the main checkout's ignored path (or outside the repository) — never inside a worktree that teardown removes — so the ledger, reports, and reviews survive cleanup as the run's audit record.
+Offer cleanup. Remove only integrated child worktrees that hold no changes beyond regenerable build artifacts (`__pycache__`, caches, `node_modules`, `dist`, build output) — artifacts are safe to destroy with `git worktree remove --force` once verified as the only residue; a workspace with real uncommitted changes is never force-removed. Never delete the run ledger or branches without explicit user instruction. Keep the run directory in the main checkout's ignored path (or outside the repository) — never inside a worktree that teardown removes — so the ledger, reports, and reviews survive cleanup as the run's audit record.
 
 ## Success contract
 

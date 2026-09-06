@@ -343,6 +343,241 @@ class GitHelperTests(unittest.TestCase):
             self.assertEqual(updated["tickets"]["02"]["status"], "ready")
             self.assertIn("reconciliation", ledger.read_text(encoding="utf-8"))
 
+    def test_reconcile_cherrypick_evidence_and_artifact_aware_dirty(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            repo = self.make_repo(root)
+            integration = repo / ".runs" / "integration"
+            child = repo / ".runs" / "t01"
+            branch = "agent/demo/integration"
+            child_branch = "agent/demo/t01"
+
+            run(
+                [
+                    "python3",
+                    str(SCRIPTS / "make_worktree.py"),
+                    "--repo",
+                    str(repo),
+                    "--path",
+                    str(integration),
+                    "--branch",
+                    branch,
+                    "--metadata",
+                    str(root / "integration.json"),
+                ]
+            )
+            base = git(integration, "rev-parse", "HEAD")
+            run(
+                [
+                    "python3",
+                    str(SCRIPTS / "make_worktree.py"),
+                    "--repo",
+                    str(repo),
+                    "--path",
+                    str(child),
+                    "--branch",
+                    child_branch,
+                    "--start",
+                    base,
+                    "--metadata",
+                    str(root / "t01.json"),
+                ]
+            )
+
+            # A parallel-wave integration: the worker commits on its child branch,
+            # and the controller cherry-picks the work, re-committing it under a
+            # new SHA that the worker's head cannot prove by ancestry.
+            (child / "feature.txt").write_text("feature\n", encoding="utf-8")
+            git(child, "add", "feature.txt")
+            git(child, "commit", "-m", "feature")
+            worker_head = git(child, "rev-parse", "HEAD")
+            # Another ticket lands first, so the integration base moves before the
+            # cherry-pick — guaranteeing the pick gets a new parent and SHA.
+            (integration / "tweak.txt").write_text("tweak\n", encoding="utf-8")
+            git(integration, "add", "tweak.txt")
+            git(integration, "commit", "-m", "tweak")
+            git(integration, "cherry-pick", worker_head)
+            pick = git(integration, "rev-parse", "HEAD")
+            self.assertNotEqual(worker_head, pick)
+
+            issues = root / "issues"
+            issues.mkdir()
+            (issues / "01-feature.md").write_text(
+                "# 01: Feature\n\n**What to build:** A feature lands.\n\n"
+                "**Blocked by:** None\n\n- [ ] It works.\n",
+                encoding="utf-8",
+            )
+            (issues / "02-follow-up.md").write_text(
+                "# 02: Follow-up\n\n**What to build:** A dependent behavior.\n\n"
+                "**Blocked by:** 01: Feature\n\n- [ ] It works.\n",
+                encoding="utf-8",
+            )
+            index = root / "ticket-index.json"
+            run(["python3", str(SCRIPTS / "index_tickets.py"), str(issues), "--output", str(index)])
+            state = root / "state.json"
+            ledger = root / "ledger.md"
+            run(
+                [
+                    "python3",
+                    str(SCRIPTS / "run_state.py"),
+                    "init",
+                    "--index",
+                    str(index),
+                    "--state",
+                    str(state),
+                    "--ledger",
+                    str(ledger),
+                    "--repo",
+                    str(repo),
+                    "--base",
+                    base,
+                    "--integration-branch",
+                    branch,
+                    "--integration-worktree",
+                    str(integration),
+                ]
+            )
+            # Crash between cherry-pick and the integration transition.
+            run(
+                [
+                    "python3",
+                    str(SCRIPTS / "run_state.py"),
+                    "transition",
+                    "--state",
+                    str(state),
+                    "--ticket",
+                    "01",
+                    "--status",
+                    "implemented",
+                    "--branch",
+                    child_branch,
+                    "--worktree",
+                    str(child),
+                    "--base-sha",
+                    base,
+                    "--head-sha",
+                    worker_head,
+                ]
+            )
+
+            # Regenerable artifacts in the child worktree must not read as dirty.
+            (child / "__pycache__").mkdir()
+            (child / "__pycache__" / "x.pyc").write_text("", encoding="utf-8")
+            (child / "node_modules").mkdir()
+            (child / "node_modules" / "dep.js").write_text("", encoding="utf-8")
+
+            # The controller records the cherry-picked SHA as the integration
+            # evidence. The worker's head cannot prove integration by ancestry,
+            # so reconciliation must honor the recorded integrated SHA.
+            run(
+                [
+                    "python3",
+                    str(SCRIPTS / "run_state.py"),
+                    "transition",
+                    "--state",
+                    str(state),
+                    "--ticket",
+                    "01",
+                    "--status",
+                    "integrated",
+                    "--integrated-sha",
+                    pick,
+                    "--integration-head",
+                    pick,
+                ]
+            )
+
+            report = json.loads(
+                run(["python3", str(SCRIPTS / "reconcile_run.py"), "--state", str(state)]).stdout
+            )
+            self.assertTrue(report["tickets"]["01"]["integrated"])
+            self.assertEqual(report["tickets"]["01"]["integration_evidence"], pick)
+            self.assertFalse(report["tickets"]["01"]["worktree_dirty"])
+            self.assertEqual(report["tickets"]["01"]["recommendations"], [])
+
+            updated = json.loads(state.read_text(encoding="utf-8"))
+            self.assertEqual(updated["tickets"]["01"]["status"], "integrated")
+            self.assertEqual(updated["ready_frontier"], ["02"])
+
+            # A real untracked file is not an artifact: the worktree reads dirty again.
+            (child / "scratch-notes.txt").write_text("salvage me\n", encoding="utf-8")
+            report2 = json.loads(
+                run(["python3", str(SCRIPTS / "reconcile_run.py"), "--state", str(state)]).stdout
+            )
+            self.assertTrue(report2["tickets"]["01"]["worktree_dirty"])
+            self.assertTrue(
+                any("preserve worktree" in rec for rec in report2["tickets"]["01"]["recommendations"])
+            )
+
+    def test_reconcile_quiet_prints_exceptions_only(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            repo = self.make_repo(root)
+            integration = repo / ".runs" / "integration"
+            run(
+                [
+                    "python3",
+                    str(SCRIPTS / "make_worktree.py"),
+                    "--repo",
+                    str(repo),
+                    "--path",
+                    str(integration),
+                    "--branch",
+                    "agent/demo/integration",
+                    "--metadata",
+                    str(root / "integration.json"),
+                ]
+            )
+            issues = root / "issues"
+            issues.mkdir()
+            (issues / "01-change.md").write_text(
+                "# 01: Change\n\n**What to build:** It works.\n\n"
+                "**Blocked by:** None\n\n- [ ] It works.\n",
+                encoding="utf-8",
+            )
+            index = root / "ticket-index.json"
+            run(["python3", str(SCRIPTS / "index_tickets.py"), str(issues), "--output", str(index)])
+            state = root / "state.json"
+            run(
+                [
+                    "python3",
+                    str(SCRIPTS / "run_state.py"),
+                    "init",
+                    "--index",
+                    str(index),
+                    "--state",
+                    str(state),
+                    "--ledger",
+                    str(root / "ledger.md"),
+                    "--repo",
+                    str(repo),
+                    "--base",
+                    "HEAD",
+                    "--integration-branch",
+                    "agent/demo/integration",
+                    "--integration-worktree",
+                    str(integration),
+                ]
+            )
+            run(
+                [
+                    "python3",
+                    str(SCRIPTS / "reconcile_run.py"),
+                    "--state",
+                    str(state),
+                    "--apply",
+                    "--quiet",
+                ]
+            )
+            summary = json.loads(
+                run(
+                    ["python3", str(SCRIPTS / "reconcile_run.py"), "--state", str(state), "--quiet"]
+                ).stdout
+            )
+            self.assertIn("integration_head", summary)
+            self.assertIn("tickets_with_recommendations", summary)
+            self.assertEqual(summary["tickets_with_recommendations"], {})
+
 
 if __name__ == "__main__":
     unittest.main()

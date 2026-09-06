@@ -155,6 +155,14 @@ def init_state(args: argparse.Namespace) -> dict[str, Any]:
         f"Initialized run `{state['run_id']}` with {len(tickets)} tickets.",
         {"base_sha": base_sha, "integration_branch": args.integration_branch},
     )
+    args.summary = {
+        "command": "init",
+        "run_id": state["run_id"],
+        "tickets": len(tickets),
+        "ready_frontier": state["ready_frontier"],
+        "state": str(args.state.resolve()),
+        "ledger": str(args.ledger.resolve()),
+    }
     return state
 
 
@@ -241,6 +249,14 @@ def transition(args: argparse.Namespace) -> dict[str, Any]:
         "retry_count": ticket.get("retry_count", 0),
     }
     append_ledger(Path(state["ledger_path"]), "ticket-transition", args.message or f"Ticket {args.ticket}: {old_status} → {args.status}.", metadata)
+    args.summary = {
+        "command": "transition",
+        "ticket": args.ticket,
+        "from": old_status,
+        "to": args.status,
+        "ready_frontier": state["ready_frontier"],
+        "run_status": state["status"],
+    }
     return state
 
 
@@ -253,6 +269,7 @@ def record(args: argparse.Namespace) -> dict[str, Any]:
     state["updated_at"] = item["at"]
     atomic_write_json(state_path, state)
     append_ledger(Path(state["ledger_path"]), args.kind, args.message)
+    args.summary = {"command": "record", "kind": args.kind, "count": len(state[key])}
     return state
 
 
@@ -270,6 +287,11 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--integration-worktree", type=Path, required=True)
     init.add_argument("--spec", type=Path)
     init.add_argument("--run-id")
+    init.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Print a one-line summary instead of the full state JSON (state.json stays authoritative)",
+    )
     init.set_defaults(handler=init_state)
 
     change = subparsers.add_parser("transition", help="Update one ticket and append a ledger event")
@@ -295,12 +317,22 @@ def build_parser() -> argparse.ArgumentParser:
     change.add_argument("--requests", type=int)
     change.add_argument("--run-status", choices=["preflight", "running", "blocked", "failed", "complete"])
     change.add_argument("--message")
+    change.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Print a one-line summary instead of the full state JSON (state.json stays authoritative)",
+    )
     change.set_defaults(handler=transition)
 
     note = subparsers.add_parser("record", help="Record a ruling or deferred observation")
     note.add_argument("--state", type=Path, required=True)
     note.add_argument("--kind", choices=["ruling", "deferred-observation"], required=True)
     note.add_argument("--message", required=True)
+    note.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Print a one-line summary instead of the full state JSON (state.json stays authoritative)",
+    )
     note.set_defaults(handler=record)
 
     return parser
@@ -314,7 +346,10 @@ def main() -> int:
     except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
-    print(json.dumps(state, indent=2))
+    if getattr(args, "quiet", False) and getattr(args, "summary", None) is not None:
+        print(json.dumps(args.summary))
+    else:
+        print(json.dumps(state, indent=2))
     return 0
 
 

@@ -196,6 +196,73 @@ class RunStateTransitionTests(unittest.TestCase):
             self.assertEqual(ticket["status"], "integrated")
             self.assertEqual(ticket["integrated_sha"], "88ecb7f4abbc6c0ed02ca2b3d3af1495f6160fc8")
 
+    def test_quiet_transition_prints_compact_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            state = self.make_initialized_state(root)
+            result = self.transition(state, "--status", "running", "--quiet")
+            summary = json.loads(result.stdout)
+            self.assertEqual(summary["command"], "transition")
+            self.assertEqual(summary["ticket"], "01")
+            self.assertEqual(summary["to"], "running")
+            self.assertIn("ready_frontier", summary)
+            # Compact means one line: at N tickets the full state is O(N) per call,
+            # the quiet summary must stay O(1).
+            self.assertNotIn("\n", result.stdout.strip())
+            self.assertLess(len(result.stdout), 400)
+            # The durable file still receives the full transition.
+            self.assertEqual(self.read(state)["tickets"]["01"]["status"], "running")
+
+    def test_quiet_init_prints_compact_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            repo = root / "repo"
+            repo.mkdir()
+            git(repo, "init")
+            git(repo, "config", "user.email", "test@example.com")
+            git(repo, "config", "user.name", "Test User")
+            (repo / "app.txt").write_text("base\n", encoding="utf-8")
+            git(repo, "add", ".")
+            git(repo, "commit", "-m", "base")
+
+            issues = root / "issues"
+            issues.mkdir()
+            (issues / "01-change.md").write_text(
+                "# 01: Change app\n\n**What to build:** App changes.\n\n"
+                "**Blocked by:** None\n\n- [ ] Change is visible.\n",
+                encoding="utf-8",
+            )
+            index = root / "ticket-index.json"
+            run(["python3", str(SCRIPTS / "index_tickets.py"), str(issues), "--output", str(index)])
+
+            result = run(
+                [
+                    "python3",
+                    str(SCRIPTS / "run_state.py"),
+                    "init",
+                    "--index",
+                    str(index),
+                    "--state",
+                    str(root / "state.json"),
+                    "--ledger",
+                    str(root / "ledger.md"),
+                    "--repo",
+                    str(repo),
+                    "--base",
+                    "HEAD",
+                    "--integration-branch",
+                    "agent/demo/integration",
+                    "--integration-worktree",
+                    str(root / "worktree"),
+                    "--quiet",
+                ]
+            )
+            summary = json.loads(result.stdout)
+            self.assertEqual(summary["command"], "init")
+            self.assertEqual(summary["tickets"], 1)
+            self.assertEqual(summary["ready_frontier"], ["01"])
+            self.assertNotIn("\n", result.stdout.strip())
+
 
 if __name__ == "__main__":
     unittest.main()

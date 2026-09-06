@@ -41,7 +41,7 @@ The controller owns scheduling and state. Workers must not spawn helpers, modify
 
 ## Integrate results
 
-For every completed worker:
+For every completed worker, batch the verification, packaging, and transition shell work into one invocation per result — controller round-trips between collection steps are a measured, avoidable cost:
 
 1. Confirm its report exists and the claimed commit or patch matches the assigned workspace.
 2. Confirm focused and component checks passed or classify the result as incomplete.

@@ -88,6 +88,8 @@ If the active environment cannot move the controller into that worktree, keep th
 
 A second checkout is a different environment, not just a different path: tooling keyed to checkout identity — compose project names, fixed ports, per-repo caches — can be healthy in the user checkout yet broken from the integration worktree. After creating it, rerun the service availability command from inside the worktree and record the outcome. When a duplicate service would collide with the healthy one (two compose projects claiming one database port, for example), point the worktree at the already-healthy shared service instead of starting a duplicate, and record that decision.
 
+Any baseline verification — a green base-suite run, a service check, a build probe — happens inside this worktree once it exists, never in the user checkout: even a read-only test run there writes build artifacts into the user's tree and violates the read-only controller.
+
 ### 6. Initialize durable state
 
 Run `scripts/run_state.py init` as shown in `references/recovery.md`. Record inferred risk, conflict domains, test commands, review policy, environment adapter, corroboration outcomes, and any ruling before dispatch.
@@ -115,7 +117,7 @@ If a dispatched worker stalls — no progress and no result — cancel it after 
 
 ### 9. Verify and integrate each result
 
-For a complete result:
+For a complete result, run the verification, packaging, and state transition as one shell invocation per result rather than separate steps — controller round-trips between collection actions measured roughly a fifth of a four-ticket run's wall time:
 
 1. Confirm the report exists and the claimed commit/patch belongs to the assigned base and workspace.
 2. Confirm focused tests, a relevant component check, and self-review are recorded.

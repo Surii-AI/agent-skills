@@ -33,4 +33,8 @@ The skill is stack-agnostic — checkpoints are discovered from the repository's
 - **Local Markdown tickets** in the accepted format, with English status keywords (`done`, `complete`, …).
 - **Optional:** a subagent/task API in the host agent for parallel waves; without one, the skill falls back to sequential execution in the controller with all gates intact.
 
-Design and benchmark evidence: 18/18 assertion passes across 4 evals vs the prior version; per-ticket pipelined scheduling measured 33% faster wall time on the 4-ticket reference graph with zero assertion loss.
+Design and benchmark evidence, from a measured end-to-end run (4-ticket dependency diamond, live subagent workers, per-phase wall-clock timing): 14/14 contract assertions; parallel implement wave and batched review each ~40% faster than serial; tree-hash smoke elision skipped 3 of 4 checkpoint re-runs; `--quiet` state summaries cut controller-facing script output 44× at 4 tickets and 200×+ at 200 (sub-KiB vs 136,588 B per transition). Script-side numbers are reproducible:
+
+```bash
+python3 benchmarks/bench_scripts.py
+```

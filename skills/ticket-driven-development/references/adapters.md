@@ -59,13 +59,29 @@ Use an invocation-specific structured output schema matching the compact impleme
 }
 ```
 
+Use the same mechanism for ticket reviewers with this schema, so verdicts reach the controller as data instead of prose to parse:
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "ticket", "blocking_findings", "review", "summary"],
+  "properties": {
+    "verdict": {"enum": ["PASS", "CHANGES_REQUESTED", "BLOCKED"]},
+    "ticket": {"type": "string"},
+    "blocking_findings": {"type": "integer"},
+    "review": {"type": "string"},
+    "summary": {"type": "string"}
+  }
+}
+
 Set strict schema mode when available. Keep worker-spawned helpers prohibited: use an agent without `spawns` and without access to recursive task delegation. A normal built-in `task` worker may have broader tools, so state the prohibition explicitly in every assignment.
 
 ### Results and repair
 
 Read the compact structured result first, then the report and task artifact only when needed. Record the worker ID, branch or patch metadata, base SHA, head SHA, report path, token/context measurements when available, and verdict in run state.
 
-Capture measurements at collection time: the task completion notification carries `total_tokens` and `duration_ms` that exist nowhere else afterward — the worker is torn down and its transcript is not a durable source. Pass them to the same `run_state.py transition` call that records the result (`--context-tokens`, `--duration-ms`, `--requests`). The script derives duration from timestamps when the flag is omitted, but it cannot invent token counts after the fact.
+Capture measurements at collection time: the task completion notification carries `total_tokens` and `duration_ms` in its result metadata — the line the notification prints alongside the output (not the worker's own report, which cannot see it). Extract them at delivery; the worker is torn down afterward and its transcript is not a durable source. Pass them to the same `run_state.py transition` call that records the result (`--context-tokens`, `--duration-ms`, `--requests`). The script derives duration from timestamps when the flag is omitted, but it cannot invent token counts after the fact.
 
 An OMP isolated worker is torn down after completion and cannot be revived. For review repairs, dispatch a fresh isolated repair worker from the updated integration head with the original ticket, report, review findings, and current diff package. A non-isolated idle or parked worker may be messaged for follow-up if its workspace is still valid.
 

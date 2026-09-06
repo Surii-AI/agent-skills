@@ -50,8 +50,7 @@ Skip independent ticket review only when all conditions hold:
 Record the skip and its reason in the ledger. Ambiguity means review, not skip.
 
 ## Review and repair
-
-Give a ticket reviewer the ticket, risk, implementer report, packaged base-to-head diff, relevant specification pointer, and scoped repository instructions. Require evidence tied to acceptance criteria. Do not ask it to rediscover the full codebase or rerun the full suite without a concrete doubt.
+Give a ticket reviewer the ticket, risk, implementer report, packaged base-to-head diff, relevant specification pointer, the interface notes of any blockers it builds on, and scoped repository instructions. Require evidence tied to acceptance criteria. Do not ask it to rediscover the full codebase or rerun the full suite without a concrete doubt.
 
 Cap ticket repair at two rounds. Follow up with the original worker only when its task-local context and workspace remain valid. Otherwise start a fresh repair worker with the original ticket, implementation report, review file, current integration base, and exact blocking findings.
 

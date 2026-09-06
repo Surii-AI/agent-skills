@@ -6,12 +6,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Sequence
 
 DEPENDENCY_SATISFIED = {"verified", "integrated", "skipped"}
 
@@ -32,6 +32,7 @@ STATUSES = {
 
 FINISHED_STATUSES = {"implemented", "blocked", "failed", "verified", "skipped", "integrated"}
 SUCCESS_TERMINAL = {"integrated", "verified", "skipped"}
+SHA_PATTERN = re.compile(r"^[0-9a-f]{7,40}$")
 
 
 def now() -> str:
@@ -164,6 +165,17 @@ def transition(args: argparse.Namespace) -> dict[str, Any]:
     if ticket is None:
         raise RuntimeError(f"unknown ticket id: {args.ticket}")
 
+    for flag, value in (
+        ("--base-sha", args.base_sha),
+        ("--head-sha", args.head_sha),
+        ("--integrated-sha", args.integrated_sha),
+        ("--integration-head", args.integration_head),
+    ):
+        if value is not None and not SHA_PATTERN.match(value):
+            raise RuntimeError(f"{flag} must be a 7-40 hex commit SHA, got: {value!r}")
+    for flag, value in (("--report", args.report), ("--review", args.review)):
+        if value is not None and (str(value) != str(value).strip() or any(ch.isspace() for ch in str(value))):
+            raise RuntimeError(f"{flag} must be a single filesystem path with no whitespace, got: {value!r}")
     if args.status == "integrated" and not (
         args.integrated_sha or args.head_sha or ticket.get("integrated_sha") or ticket.get("head_sha")
     ):

@@ -37,7 +37,7 @@ python scripts/run_state.py init \
 
 Update a ticket at every durable boundary: dispatched, implemented, reviewed, repair requested, integrated, checkpoint passed, or failed. Use `scripts/run_state.py transition`; record assumptions or deliberately deferred findings with its `record` command.
 
-`transition` enforces the terminal-status contract so state cannot lie: it derives `duration_ms` from the ticket's start/finish timestamps unless given an explicit value, archives a resolved `last_error` into `repair_history` when a ticket reaches `integrated`, `verified`, or `skipped`, and rejects `integrated` without a reachable commit (`--integrated-sha` or `--head-sha`). A ticket whose entire output is unversioned artifacts — docs, sign-off packages, reports — ends `verified` with its report path as evidence, never `integrated`.
+`transition` enforces the terminal-status contract so state cannot lie: it derives `duration_ms` from the ticket's start/finish timestamps unless given an explicit value, archives a resolved `last_error` into `repair_history` when a ticket reaches `integrated`, `verified`, or `skipped`, and rejects `integrated` without a reachable commit (`--integrated-sha` or `--head-sha`). Terminal statuses are canonical: a ticket with a commit ends `integrated`; a ticket whose entire output is unversioned artifacts — docs, sign-off packages, reports — ends `verified` with its report path as evidence. Record post-integration checkpoint outcomes in the ledger rather than restamping a code ticket `verified`.
 
 ## Resume protocol
 

@@ -149,6 +149,53 @@ class RunStateTransitionTests(unittest.TestCase):
             self.assertEqual(history[0]["retry_count"], 1)
             self.assertIn("at", history[0])
 
+    def test_non_sha_commit_value_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            state = self.make_initialized_state(root)
+            result = self.transition(
+                state,
+                "--status",
+                "integrated",
+                "--integrated-sha",
+                "main",
+                expected=2,
+            )
+            self.assertIn("7-40 hex commit SHA", result.stderr)
+            self.assertNotEqual(self.read(state)["tickets"]["01"]["status"], "integrated")
+
+    def test_review_value_with_whitespace_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            state = self.make_initialized_state(root)
+            result = self.transition(
+                state,
+                "--status",
+                "implemented",
+                "--review",
+                "reviews/01.md PASS",
+                expected=2,
+            )
+            self.assertIn("single filesystem path", result.stderr)
+            self.assertIsNone(self.read(state)["tickets"]["01"]["review_path"])
+
+    def test_full_sha_and_plain_path_still_accepted(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            state = self.make_initialized_state(root)
+            self.transition(
+                state,
+                "--status",
+                "integrated",
+                "--integrated-sha",
+                "88ecb7f4abbc6c0ed02ca2b3d3af1495f6160fc8",
+                "--report",
+                "reports/01.md",
+            )
+            ticket = self.read(state)["tickets"]["01"]
+            self.assertEqual(ticket["status"], "integrated")
+            self.assertEqual(ticket["integrated_sha"], "88ecb7f4abbc6c0ed02ca2b3d3af1495f6160fc8")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -21,7 +21,7 @@ Act as the **controller**. Convert an approved directory of Markdown tickets int
 7. Use deterministic Git commands for clean integration. Use a conflict agent only after Git demonstrates a conflict.
 8. Cap ticket repair at two rounds. Stop, split, escalate, or ask for a decision after the cap.
 9. Persist `state.json` and append-only `ledger.md`. Never use conversation memory as the run database.
-10. Mark a ticket complete only after its change is reachable from the integration branch and its applicable checkpoint passes. `integrated` requires a reachable commit; a ticket whose entire output is unversioned artifacts (docs, sign-off packages) ends `verified` with its report as evidence — never `integrated` with no commit, and never by working in the user's checkout.
+10. Mark a ticket complete only after its change is reachable from the integration branch and its applicable checkpoint passes. Terminal statuses are canonical, not stylistic: a ticket with a commit ends `integrated` (record checkpoint outcomes in the ledger and review verdict, not by restamping the status); a ticket whose entire output is unversioned artifacts (docs, sign-off packages) ends `verified` with its report as evidence — never `integrated` with no commit, and never by working in the user's checkout.
 11. A source status claiming completion is a claim, not evidence. Corroborate it against the repository before trusting it; never redispatch corroborated work, and never schedule dependents on an uncorroborated claim.
 12. Mutate the repository only when open work exists. When corroboration leaves no incomplete ticket, end the run with zero repository changes.
 
@@ -134,7 +134,7 @@ python <skill-dir>/scripts/package_diff.py \
 5. If approved, integrate with deterministic Git. Confirm the ticket head is an ancestor of the integration head, then run the required smoke checkpoint.
 6. Persist every transition with `scripts/run_state.py transition`, recording measurements from the worker result at collection time — duration and context size are only reliably observable now, and backfilled numbers are guesses.
 
-A result with no repository change integrates nothing: confirm its artifacts landed at their assigned run-directory paths and transition the ticket to `verified` with the report as evidence.
+A result with no repository change integrates nothing: confirm its artifacts landed at their assigned run-directory paths and transition the ticket to `verified` with the report as evidence. A result with a commit ends `integrated`; do not restamp it `verified` after its checkpoint — record the checkpoint pass in the ledger instead.
 
 For review failure, perform no more than two repair rounds. Resume the original worker only when its workspace survives; otherwise dispatch a fresh repair worker with the exact findings and current evidence.
 

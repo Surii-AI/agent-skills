@@ -19,6 +19,8 @@ conflicts/
 
 The controller is the only writer of `state.json` and `ledger.md`. Workers receive read-only pointers and write only their assigned report files inside the run directory.
 
+Place the run directory in the main checkout's ignored path or outside the repository — never inside the integration worktree or a child workspace that teardown removes. Workspaces are disposable once integrated; the ledger, reports, and reviews are the audit record and must survive cleanup.
+
 Initialize state after the integration worktree exists:
 
 ```bash
@@ -34,6 +36,8 @@ python scripts/run_state.py init \
 ```
 
 Update a ticket at every durable boundary: dispatched, implemented, reviewed, repair requested, integrated, checkpoint passed, or failed. Use `scripts/run_state.py transition`; record assumptions or deliberately deferred findings with its `record` command.
+
+`transition` enforces the terminal-status contract so state cannot lie: it derives `duration_ms` from the ticket's start/finish timestamps unless given an explicit value, archives a resolved `last_error` into `repair_history` when a ticket reaches `integrated`, `verified`, or `skipped`, and rejects `integrated` without a reachable commit (`--integrated-sha` or `--head-sha`). A ticket whose entire output is unversioned artifacts — docs, sign-off packages, reports — ends `verified` with its report path as evidence, never `integrated`.
 
 ## Resume protocol
 
@@ -65,4 +69,4 @@ Preserve failed or dirty workspaces until classified. Record the error and choos
 
 Remove a child workspace only after its intended commits are integrated, applicable checks pass, and the workspace is clean. Never force-remove a worktree with uncommitted changes. Keep failed, disputed, or unintegrated workspaces until the final report identifies their disposition.
 
-At completion, offer to remove clean child worktrees and the integration worktree. Do not delete branches or the run ledger unless the user explicitly requests it. Preserve enough evidence to audit the final branch.
+At completion, offer to remove clean child worktrees and the integration worktree. Do not delete branches or the run ledger unless the user explicitly requests it. Preserve enough evidence to audit the final branch. Before removing the integration worktree, confirm the run directory is not inside it; if it is, move the run directory out first — its teardown would otherwise destroy the audit record.

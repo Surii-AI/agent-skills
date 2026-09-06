@@ -21,7 +21,7 @@ Act as the **controller**. Convert an approved directory of Markdown tickets int
 7. Use deterministic Git commands for clean integration. Use a conflict agent only after Git demonstrates a conflict.
 8. Cap ticket repair at two rounds. Stop, split, escalate, or ask for a decision after the cap.
 9. Persist `state.json` and append-only `ledger.md`. Never use conversation memory as the run database.
-10. Mark a ticket complete only after its change is reachable from the integration branch and its applicable checkpoint passes.
+10. Mark a ticket complete only after its change is reachable from the integration branch and its applicable checkpoint passes. `integrated` requires a reachable commit; a ticket whose entire output is unversioned artifacts (docs, sign-off packages) ends `verified` with its report as evidence — never `integrated` with no commit, and never by working in the user's checkout.
 11. A source status claiming completion is a claim, not evidence. Corroborate it against the repository before trusting it; never redispatch corroborated work, and never schedule dependents on an uncorroborated claim.
 12. Mutate the repository only when open work exists. When corroboration leaves no incomplete ticket, end the run with zero repository changes.
 
@@ -86,6 +86,8 @@ python <skill-dir>/scripts/make_worktree.py \
 
 If the active environment cannot move the controller into that worktree, keep the controller read-only in its original checkout and use absolute paths for all operations in the integration worktree. Use environment-native isolated children only when they are based on this integration worktree; otherwise use explicit child worktrees.
 
+A second checkout is a different environment, not just a different path: tooling keyed to checkout identity — compose project names, fixed ports, per-repo caches — can be healthy in the user checkout yet broken from the integration worktree. After creating it, rerun the service availability command from inside the worktree and record the outcome. When a duplicate service would collide with the healthy one (two compose projects claiming one database port, for example), point the worktree at the already-healthy shared service instead of starting a duplicate, and record that decision.
+
 ### 6. Initialize durable state
 
 Run `scripts/run_state.py init` as shown in `references/recovery.md`. Record inferred risk, conflict domains, test commands, review policy, environment adapter, corroboration outcomes, and any ruling before dispatch.
@@ -130,7 +132,9 @@ python <skill-dir>/scripts/package_diff.py \
 
 4. Apply the risk policy in `references/verification-policy.md`. Render `templates/reviewer-prompt.md` when review is required.
 5. If approved, integrate with deterministic Git. Confirm the ticket head is an ancestor of the integration head, then run the required smoke checkpoint.
-6. Persist every transition with `scripts/run_state.py transition`.
+6. Persist every transition with `scripts/run_state.py transition`, recording measurements from the worker result at collection time — duration and context size are only reliably observable now, and backfilled numbers are guesses.
+
+A result with no repository change integrates nothing: confirm its artifacts landed at their assigned run-directory paths and transition the ticket to `verified` with the report as evidence.
 
 For review failure, perform no more than two repair rounds. Resume the original worker only when its workspace survives; otherwise dispatch a fresh repair worker with the exact findings and current evidence.
 
@@ -150,11 +154,11 @@ If changes are requested, perform one consolidated fix wave and one scoped re-re
 
 ### 12. Measure, report, and clean up safely
 
-Measure critical-path wall time per accepted change rather than worker count. When observable, summarize ticket duration, worker context size, agent seats, repair rounds, merge conflicts, worktree overhead, and human interventions. Treat routine worker context above 64k tokens, mandatory merger agents on clean integrations, or frequent parallel conflicts as policy failures to investigate rather than normal costs.
+Measure critical-path wall time per accepted change rather than worker count. Record duration and worker context size at collection time — `run_state.py` derives ticket duration from its recorded timestamps, and the dispatch result (on OMP, the task completion notification) is the only place token totals exist before they are gone. Summarize ticket duration, worker context size, agent seats, repair rounds, merge conflicts, worktree overhead, and human interventions. Treat routine worker context above 64k tokens, mandatory merger agents on clean integrations, or frequent parallel conflicts as policy failures to investigate rather than normal costs.
 
 Report the integration branch and head, completed tickets, exact tests, review outcomes, rulings, corroboration outcomes, deferred observations, unresolved risks, measurements, and workspace disposition. Distinguish passed, failed, and skipped checks.
 
-Offer cleanup. Remove only clean, integrated child worktrees. Never force-remove a dirty or unintegrated workspace, and never delete the run ledger or branches without explicit user instruction.
+Offer cleanup. Remove only clean, integrated child worktrees. Never force-remove a dirty or unintegrated workspace, and never delete the run ledger or branches without explicit user instruction. Keep the run directory in the main checkout's ignored path (or outside the repository) — never inside a worktree that teardown removes — so the ledger, reports, and reviews survive cleanup as the run's audit record.
 
 ## Success contract
 

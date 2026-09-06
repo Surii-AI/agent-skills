@@ -30,6 +30,9 @@ STATUSES = {
     "skipped",
 }
 
+FINISHED_STATUSES = {"implemented", "blocked", "failed", "verified", "skipped", "integrated"}
+SUCCESS_TERMINAL = {"integrated", "verified", "skipped"}
+
 
 def now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -113,6 +116,7 @@ def init_state(args: argparse.Namespace) -> dict[str, Any]:
             "retry_count": 0,
             "integrated_sha": None,
             "last_error": None,
+            "repair_history": [],
             "started_at": None,
             "finished_at": None,
             "duration_ms": None,
@@ -160,6 +164,14 @@ def transition(args: argparse.Namespace) -> dict[str, Any]:
     if ticket is None:
         raise RuntimeError(f"unknown ticket id: {args.ticket}")
 
+    if args.status == "integrated" and not (
+        args.integrated_sha or args.head_sha or ticket.get("integrated_sha") or ticket.get("head_sha")
+    ):
+        raise RuntimeError(
+            "status 'integrated' requires a commit reachable from the integration branch; "
+            "pass --integrated-sha or --head-sha, or use 'verified' for a ticket whose "
+            "entire output is unversioned artifacts recorded in its report"
+        )
     old_status = ticket["status"]
     ticket["status"] = args.status
     fields = {
@@ -183,8 +195,18 @@ def transition(args: argparse.Namespace) -> dict[str, Any]:
             ticket[key] = value
     if args.status == "running" and not ticket.get("started_at"):
         ticket["started_at"] = now()
-    if args.status in {"implemented", "blocked", "failed", "verified", "skipped"}:
+    if args.status in FINISHED_STATUSES:
         ticket["finished_at"] = now()
+        if args.duration_ms is None and ticket.get("started_at"):
+            started = datetime.fromisoformat(ticket["started_at"])
+            ticket["duration_ms"] = int(
+                (datetime.fromisoformat(ticket["finished_at"]) - started).total_seconds() * 1000
+            )
+    if args.status in SUCCESS_TERMINAL and ticket.get("last_error"):
+        ticket.setdefault("repair_history", []).append(
+            {"at": now(), "error": ticket["last_error"], "retry_count": ticket.get("retry_count", 0)}
+        )
+        ticket["last_error"] = None
     if args.conflict_domain:
         ticket["conflict_domains"] = list(dict.fromkeys(args.conflict_domain))
     if args.increment_retry:

@@ -22,6 +22,7 @@ Before the first dispatch, determine whether the repository's checkpoints need e
 2. **Skip** the check entirely when those sources show the test suite is self-contained (no service containers, no service-dependent setup steps).
 3. **Run** the discovered availability command and record the command plus outcome in run state before dispatching.
 4. **Ask the user** only when discovery is ambiguous, multiple conflicting candidates exist, or a check fails — present what you found and let the user pick. Do not invent commands.
+5. **Re-check from the integration worktree** once it exists, before the first dispatch. Services keyed to checkout identity — compose project names, fixed ports, per-repo caches — can be healthy in the user checkout yet broken from a second checkout (a compose project-name collision over one database port is the canonical example). Rerun the availability command from inside the worktree. When a duplicate service would collide with a healthy one, point the worktree at the shared service rather than starting a second, and record the decision in run state.
 
 When a required service cannot be brought up, either restrict the run to tickets whose checks do not need it or stop and record a ruling before dispatching anything. A worker that cannot run its focused tests will either commit unverified work or grind; both violate the verification contract.
 
@@ -65,5 +66,7 @@ After every ticket is integrated:
 3. Run one requirements-aware review using `templates/final-review-prompt.md`.
 4. If changes are requested, perform one consolidated fix wave and one scoped re-review.
 5. Mark the run complete only when Git reachability, tests, and final review all pass.
+
+**Ambient failure adjudication.** A failing full suite is a regression until proven otherwise. Reclassify a failure as pre-existing ambient flake only when all of these hold: the failing files are untouched by the base-to-head diff; the same suite fails nondeterministically across reruns (different tests or orderings each run); and the failing tests pass in isolation and at the exact final head. Then record the evidence as a deferred observation, report those tests as pre-existing and unverified — never as passing — and proceed. A failure in a file the branch touches, or any deterministic failure, blocks completion.
 
 Do not claim success when a required check was skipped. Report it as unverified with the reason.

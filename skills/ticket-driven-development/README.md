@@ -24,4 +24,13 @@ The skill **executes** tickets; it refuses to author them. Ticket format: see `r
 - [ ] Acceptance criterion
 ```
 
+## Requirements
+
+The skill is stack-agnostic — checkpoints are discovered from the repository's own tooling (CI workflows, package scripts, task runners), never assumed. It needs:
+
+- **Git** — the run is built on worktrees and an integration branch.
+- **Python 3.9+** on `PATH` as `python3` — the bundled scripts use only the standard library.
+- **Local Markdown tickets** in the accepted format, with English status keywords (`done`, `complete`, …).
+- **Optional:** a subagent/task API in the host agent for parallel waves; without one, the skill falls back to sequential execution in the controller with all gates intact.
+
 Design and benchmark evidence: 18/18 assertion passes across 4 evals vs the prior version; per-ticket pipelined scheduling measured 33% faster wall time on the 4-ticket reference graph with zero assertion loss.

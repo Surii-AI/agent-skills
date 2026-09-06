@@ -12,6 +12,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Sequence
 
+from run_state import DEPENDENCY_SATISFIED
+
 
 def now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -43,7 +45,10 @@ def recompute_frontier(state: dict[str, Any]) -> list[str]:
         if ticket.get("status") not in {"pending", "ready"}:
             continue
         blockers = ticket.get("blockers", [])
-        is_ready = all(tickets.get(blocker, {}).get("status") in {"verified", "skipped"} for blocker in blockers)
+        # Same satisfied-set as run_state.py: a reconciliation that marks a blocker
+        # integrated must unlock its dependents exactly as a normal transition would,
+        # or every resume on a partly integrated run reports an empty frontier.
+        is_ready = all(tickets.get(blocker, {}).get("status") in DEPENDENCY_SATISFIED for blocker in blockers)
         ticket["status"] = "ready" if is_ready else "pending"
         if is_ready:
             ready.append(ticket_id)

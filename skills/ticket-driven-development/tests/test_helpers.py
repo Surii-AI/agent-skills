@@ -336,26 +336,11 @@ class GitHelperTests(unittest.TestCase):
             self.assertTrue(report["tickets"]["01"]["integrated"])
             updated = json.loads(state.read_text(encoding="utf-8"))
             self.assertEqual(updated["tickets"]["01"]["status"], "integrated")
-            self.assertEqual(updated["ready_frontier"], [])
-
-            run(
-                [
-                    "python3",
-                    str(SCRIPTS / "run_state.py"),
-                    "transition",
-                    "--state",
-                    str(state),
-                    "--ticket",
-                    "01",
-                    "--status",
-                    "verified",
-                    "--review-verdict",
-                    "pass",
-                ]
-            )
-            verified = json.loads(state.read_text(encoding="utf-8"))
-            self.assertEqual(verified["ready_frontier"], ["02"])
-            self.assertEqual(verified["tickets"]["02"]["status"], "ready")
+            # An integrated blocker satisfies its dependents here exactly as a
+            # run_state transition would; checkpoint confirmation stays with the
+            # controller, so no verified restamp may be required to unlock 02.
+            self.assertEqual(updated["ready_frontier"], ["02"])
+            self.assertEqual(updated["tickets"]["02"]["status"], "ready")
             self.assertIn("reconciliation", ledger.read_text(encoding="utf-8"))
 
 

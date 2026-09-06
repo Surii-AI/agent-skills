@@ -4,7 +4,7 @@ Use this reference whenever the ready frontier contains more than one ticket, a 
 
 ## Objective
 
-Optimize the shortest reliable critical path, not worker count. Start with a maximum of three concurrent implementers. Lower the cap when the repository, provider, or test environment is fragile; raise it only from measured evidence.
+Optimize the shortest reliable critical path, not worker count. Start with a maximum of four concurrent implementers. A concurrency cap the user declares at invocation is authoritative — honor it without demanding prior-run evidence. Lower the cap when the repository, provider, or test environment is fragile; raise it beyond the user's number only from measured evidence.
 
 ## Classify the frontier
 
@@ -33,7 +33,9 @@ Before starting a wave:
 4. Ensure all child workspaces start from the same wave base.
 5. Record worker IDs and workspace/branch metadata before relying on their output.
 
-Budget the isolation cost honestly: in dependency-heavy monorepos (gitignored `node_modules`, virtualenvs, build caches) every child worktree needs its own dependency install before it can build or test. With a warm package-manager store this is minutes per workspace, not seconds. When installs are expensive, prefer sequential waves in the single integration worktree (one install, reused) over parallel child worktrees — the no-concurrent-writers invariant is preserved either way, and critical-path time often wins sequential.
+Dispatch the critical path first: start the longest or highest-risk ready ticket before its siblings, so its review overlaps their implementation and its dependents unblock earliest.
+
+Budget the isolation cost honestly: in dependency-heavy monorepos (gitignored `node_modules`, virtualenvs, build caches) every child worktree needs its own dependency install before it can build or test. With a warm package-manager store this is minutes per workspace, not seconds. When parallel worktrees are right but installs are costly, point each child install at the package manager's shared store — pnpm, cargo, uv, and poetry all reuse a global cache by default or with one setting — so children pay for cold files only. When installs remain expensive, prefer sequential waves in the single integration worktree (one install, reused) over parallel child worktrees — the no-concurrent-writers invariant is preserved either way, and critical-path time often wins sequential.
 
 The controller owns scheduling and state. Workers must not spawn helpers, modify ticket files, edit run state, or integrate sibling work.
 
@@ -50,7 +52,7 @@ For every completed worker:
 
 Do not launch a merger agent for a clean Git operation. If Git reports a conflict, abort the automatic operation, preserve both sides, save the conflict evidence, and use `templates/conflict-resolver-prompt.md` for one narrow resolver.
 
-Smoke-check each integration per its risk tier, then recompute the frontier immediately: a ticket's dependents are gated by that ticket's own checkpoint, never by a sibling still under review. Only high-risk runs keep a wave-wide barrier — smoke the whole integration state before any further dispatch. Newly unblocked tickets must start from the updated integration branch, never from a sibling branch. Independent ticket reviews are read-only and conflict-free: dispatch them as one parallel batch rather than one at a time.
+Smoke-check each integration per its risk tier — eliding the run when the worker-verified and integration tree hashes are equal, as defined in `references/verification-policy.md` — then recompute the frontier immediately: a ticket's dependents are gated by that ticket's own checkpoint, never by a sibling still under review. Only high-risk runs keep a wave-wide barrier — smoke the whole integration state before any further dispatch. Newly unblocked tickets must start from the updated integration branch, never from a sibling branch. Independent ticket reviews are read-only and conflict-free: dispatch them as one parallel batch rather than one at a time.
 
 ## Stop conditions
 

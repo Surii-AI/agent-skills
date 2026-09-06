@@ -24,14 +24,14 @@ Oh My Pi is the preferred adapter. Its official documentation is at <https://omp
 For a local installation with enforced explicit-only discovery, run:
 
 ```bash
-python scripts/install_skill.py --target omp --scope user
+python3 scripts/install_skill.py --target omp --scope user
 ```
 
-The installer copies the portable source and adds OMP’s supported top-level `disable-model-invocation: true` field to the installed copy. Use `--scope project --project <repo>` for a repository-local installation. Codex, OpenCode, and generic Agent Skills locations are available through the corresponding `--target` value.
+The installer copies the portable source and adds OMP’s supported top-level `disable-model-invocation: true` field to the installed copy. Use `--scope project --project <repo>` for a repository-local installation. Codex, OpenCode, ZCode (`--target zcode`), and generic Agent Skills locations are available through the corresponding `--target` value.
 
 ### Preflight
 
-Verify that the skill was explicitly invoked. Open `/settings` and ensure **Tasks → Isolation Mode** is not `none` before requesting isolated tasks. Prefer branch merge strategy when the environment exposes that choice, because branch and commit metadata are easier to reconcile than anonymous patches. Keep the skill’s default maximum active implementers at three even if `task.maxConcurrency` is larger.
+Verify that the skill was explicitly invoked. Open `/settings` and ensure **Tasks → Isolation Mode** is not `none` before requesting isolated tasks. Prefer branch merge strategy when the environment exposes that choice, because branch and commit metadata are easier to reconcile than anonymous patches. Keep active implementers at the skill’s default maximum of four — or the user-declared cap when the invocation states one — even if `task.maxConcurrency` is larger.
 
 Use the built-in `task` agent for implementation and `reviewer` for independent review. Do not require custom `.omp/agents` files in version 0.1; Agent Skills cannot install those definitions portably.
 

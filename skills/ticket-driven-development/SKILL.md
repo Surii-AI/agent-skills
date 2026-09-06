@@ -56,7 +56,7 @@ Choose an ignored run directory such as `.scratch/<feature>/runs/<run-id>/`, and
 Run:
 
 ```bash
-python <skill-dir>/scripts/index_tickets.py <ticket-dir> \
+python3 <skill-dir>/scripts/index_tickets.py <ticket-dir> \
   --output <run-dir>/ticket-index.json
 ```
 
@@ -76,7 +76,7 @@ If corroboration leaves no incomplete ticket, stop and report the directory as a
 With open work confirmed, create a branch such as `agent/<feature>/integration` at the recorded base SHA. Prefer a real integration worktree that isolates the run from the user checkout:
 
 ```bash
-python <skill-dir>/scripts/make_worktree.py \
+python3 <skill-dir>/scripts/make_worktree.py \
   --repo <repo> \
   --path <integration-worktree> \
   --branch agent/<feature>/integration \
@@ -99,7 +99,7 @@ On an existing run, do not initialize again. Follow the resume protocol in `refe
 A ticket is ready only when every blocker is integrated and its required checkpoint passed. Infer missing conflict domains from a narrow repository inspection. Read `references/scheduling.md` and choose:
 
 - **Sequential:** one fresh worker in the integration worktree when only one ticket is ready, domains overlap, or risk is high.
-- **Parallel:** at most three fresh workers in isolated child workspaces when at least two dependency-independent tickets have confidently disjoint conflict domains.
+- **Parallel:** at most four fresh workers by default — or the concurrency cap the user declared at invocation — in isolated child workspaces when at least two dependency-independent tickets have confidently disjoint conflict domains. A user-declared cap is authoritative: apply it without demanding prior-run evidence, but still lower it when the repository or test environment is fragile, and never exceed the invariants (no concurrent writers in one checkout, disjoint domains only).
 
 Record the chosen wave base. Start every parallel child from that exact integration commit.
 
@@ -111,7 +111,7 @@ Do not supply the full interview, all tickets, unrelated reports, or accumulated
 
 Use the adapter in `references/adapters.md`. Prefer structured return fields when supported. A worker may finish as `COMPLETE`, `BLOCKED`, `NEEDS_CONTEXT`, `NEEDS_SPLIT`, or `FAILED`.
 
-If a dispatched worker stalls — no progress and no result within a reasonable window — cancel it, preserve any partial workspace for inspection, and either redispatch once from a fresh worker or complete that step yourself in the controller. Record the intervention and its reason in the ledger either way; a silently absorbed stall is a lost audit event.
+If a dispatched worker stalls — no progress and no result — cancel it after a bounded window: twice the median duration of completed workers this run, with a floor of ten minutes; a window the user declared at invocation overrides the default. Preserve any partial workspace for inspection, and either redispatch once from a fresh worker or complete that step yourself in the controller. Record the intervention, its window, and its reason in the ledger either way; a silently absorbed stall is a lost audit event.
 
 ### 9. Verify and integrate each result
 
@@ -122,7 +122,7 @@ For a complete result:
 3. Package the complete change:
 
 ```bash
-python <skill-dir>/scripts/package_diff.py \
+python3 <skill-dir>/scripts/package_diff.py \
   --repo <workspace> \
   --base <ticket-base-sha> \
   --head <ticket-head-sha> \
@@ -131,7 +131,7 @@ python <skill-dir>/scripts/package_diff.py \
 ```
 
 4. Apply the risk policy in `references/verification-policy.md`. Render `templates/reviewer-prompt.md` when review is required.
-5. If approved, integrate with deterministic Git. Confirm the ticket head is an ancestor of the integration head, then run the required smoke checkpoint.
+5. If approved, integrate with deterministic Git. Confirm the ticket head is an ancestor of the integration head, then run the required smoke checkpoint — unless the worker-verified and integration trees are byte-identical (`git rev-parse <sha>^{tree}` equality), in which case record the equal tree hashes as checkpoint evidence per the elision rule in `references/verification-policy.md`.
 6. Persist every transition with `scripts/run_state.py transition`, recording measurements from the worker result at collection time — duration and context size are only reliably observable now, and backfilled numbers are guesses.
 
 A result with no repository change integrates nothing: confirm its artifacts landed at their assigned run-directory paths and transition the ticket to `verified` with the report as evidence. A result with a commit ends `integrated`; do not restamp it `verified` after its checkpoint — record the checkpoint pass in the ledger instead.
@@ -148,7 +148,7 @@ When no ticket is ready but incomplete tickets remain, diagnose an invalid state
 
 ### 11. Run the final gate
 
-Package the full original-base-to-integration-head diff. Run the configured full suite and render `templates/final-review-prompt.md` for one requirements-aware final branch review.
+Package the full original-base-to-integration-head diff. Run the configured full suite and the requirements-aware final branch review (`templates/final-review-prompt.md`) concurrently: both are read-only against the same final head, so there is no reason to serialize them. The full suite must pass at the final head — after a fix wave, rerun it only when the fix changed code.
 
 If changes are requested, perform one consolidated fix wave and one scoped re-review. Mark the run complete only when all intended tickets are integrated, required checks pass, and the final verdict is `PASS`.
 

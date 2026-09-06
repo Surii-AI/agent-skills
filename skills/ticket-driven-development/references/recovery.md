@@ -24,7 +24,7 @@ Place the run directory in the main checkout's ignored path or outside the repos
 Initialize state after the integration worktree exists:
 
 ```bash
-python scripts/run_state.py init \
+python3 scripts/run_state.py init \
   --index <run-dir>/ticket-index.json \
   --state <run-dir>/state.json \
   --ledger <run-dir>/ledger.md \
@@ -62,7 +62,7 @@ Preserve failed or dirty workspaces until classified. Record the error and choos
 | Worker stopped with `NEEDS_CONTEXT` | Add only the named missing context and follow up or replace. |
 | Worker stopped with `NEEDS_SPLIT` | Split the ticket contract with user approval when scope changes; do not improvise hidden subtickets. |
 | Worker vanished with dirty changes | Preserve the workspace, inspect the diff, and decide whether to salvage or discard explicitly. |
-| Dispatched worker stalls (no progress, no result) | Cancel it, preserve any partial workspace, redispatch once fresh or complete the step controller-side; record the intervention in the ledger. |
+| Dispatched worker stalls (no progress, no result) | Cancel it after the bounded stall window — 2× the median duration of completed workers this run, floor ten minutes, unless the user declared one — then preserve any partial workspace, redispatch once fresh or complete the step controller-side; record the intervention in the ledger. |
 | Base or integration branch moved unexpectedly | Stop, record both SHAs, and reconcile before any new dispatch. |
 
 ## Cleanup

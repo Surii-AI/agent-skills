@@ -228,6 +228,24 @@ def build_index(ticket_dir: Path) -> dict[str, Any]:
     tickets = [parse_ticket(path) for path in paths]
     ids = [ticket["id"] for ticket in tickets]
 
+    zero_ticket_errors: list[str] = []
+    if not paths:
+        nested = sorted(
+            str(path.relative_to(ticket_dir))
+            for path in ticket_dir.rglob("*.md")
+            if path.is_file()
+        )
+        hint = ""
+        if nested:
+            shown = ", ".join(nested[:5]) + (" …" if len(nested) > 5 else "")
+            hint = (
+                " — but *.md files exist in subdirectories: "
+                f"{shown}. Pass the directory that directly contains the tickets."
+            )
+        zero_ticket_errors.append(
+            f"no ticket files (*.md) found in {ticket_dir.resolve()}{hint}"
+        )
+
     duplicate_ids = sorted({ticket_id for ticket_id in ids if ids.count(ticket_id) > 1})
     for duplicate in duplicate_ids:
         for ticket in tickets:
@@ -247,7 +265,7 @@ def build_index(ticket_dir: Path) -> dict[str, Any]:
         and all(blocker in completed for blocker in ticket["blockers"])
     ]
 
-    errors = graph_errors + [
+    errors = zero_ticket_errors + graph_errors + [
         f"{ticket['id']} ({Path(ticket['path']).name}): {error}"
         for ticket in tickets
         for error in ticket["errors"]

@@ -68,6 +68,7 @@ def create_worktree(
     owner: str,
     metadata_path: Path,
     reuse: bool,
+    attach: bool = False,
 ) -> dict[str, object]:
     repo_root = Path(run_git(repo, ["rev-parse", "--show-toplevel"]).stdout.strip()).resolve()
     base_sha = run_git(repo_root, ["rev-parse", f"{start_point}^{{commit}}"]).stdout.strip()
@@ -108,12 +109,41 @@ def create_worktree(
                 f"worktree path is inside the repository but not ignored: {worktree}. "
                 "Add its parent directory to .gitignore or choose a path outside the repository."
             )
-
     branch_exists = run_git(repo_root, ["show-ref", "--verify", "--quiet", f"refs/heads/{branch}"], check=False)
-    if branch_exists.returncode == 0:
-        raise RuntimeError(f"branch already exists: {branch}; use a new run branch or --reuse its registered worktree")
-
     worktree.parent.mkdir(parents=True, exist_ok=True)
+
+    if branch_exists.returncode == 0:
+        # Resume: the integration branch survived but its worktree did not. Attach a new
+        # worktree to the existing branch instead of failing or recreating history.
+        if not attach:
+            raise RuntimeError(
+                f"branch already exists: {branch}; pass --attach to resume it in a new worktree, "
+                "or --reuse its registered worktree"
+            )
+        run_git(repo_root, ["worktree", "add", str(worktree), branch])
+        head_sha = run_git(worktree, ["rev-parse", "HEAD"]).stdout.strip()
+        branch_tip = run_git(repo_root, ["rev-parse", f"refs/heads/{branch}"]).stdout.strip()
+        if head_sha != branch_tip:
+            raise RuntimeError(f"attached worktree HEAD {head_sha} does not match branch tip {branch_tip}")
+        metadata = {
+            "schema_version": 1,
+            "repo_root": str(repo_root),
+            "path": str(worktree),
+            "branch": branch,
+            "base_sha": branch_tip,
+            "head_sha": head_sha,
+            "owner": owner,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "verified_at": datetime.now(timezone.utc).isoformat(),
+            "reused": False,
+            "attached": True,
+        }
+        atomic_write_json(metadata_path, metadata)
+        return metadata
+
+    if attach:
+        raise RuntimeError(f"cannot --attach: branch does not exist: {branch}")
+
     run_git(repo_root, ["worktree", "add", "-b", branch, str(worktree), base_sha])
     head_sha = run_git(worktree, ["rev-parse", "HEAD"]).stdout.strip()
     if head_sha != base_sha:
@@ -139,11 +169,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, default=Path.cwd(), help="Any path inside the source Git repository")
     parser.add_argument("--path", type=Path, required=True, help="Destination worktree path")
-    parser.add_argument("--branch", required=True, help="New or expected local branch name")
+    parser.add_argument("--branch", required=True, help="New, expected, or existing (with --attach) local branch name")
     parser.add_argument("--start", default="HEAD", help="Commit-ish from which to create the worktree")
     parser.add_argument("--owner", default="ticket-driven-development", help="Owner recorded in metadata")
     parser.add_argument("--metadata", type=Path, required=True, help="JSON ownership metadata output path")
     parser.add_argument("--reuse", action="store_true", help="Verify and reuse an already registered worktree")
+    parser.add_argument(
+        "--attach",
+        action="store_true",
+        help="Attach a new worktree to an existing branch (resume after the worktree was lost)",
+    )
     args = parser.parse_args()
 
     try:
@@ -155,6 +190,7 @@ def main() -> int:
             args.owner,
             args.metadata,
             args.reuse,
+            args.attach,
         )
     except (OSError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

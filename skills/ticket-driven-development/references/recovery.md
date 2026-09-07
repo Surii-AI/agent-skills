@@ -47,7 +47,19 @@ Do not infer status from the conversation. On every resume:
 2. Run `scripts/reconcile_run.py --state <run-dir>/state.json` without `--apply` (`--quiet` prints only the tickets carrying recommendations and any applied changes, which at scale is the inspection list).
 3. Inspect every warning, dirty worktree, missing commit, and branch mismatch.
 4. If the report is correct, rerun with `--apply` to make only safe repairs.
-5. Recompute the ready frontier from the reconciled state.
+5. Recreate the integration worktree if teardown or interruption removed it: the branch survived, so attach a worktree to it rather than recreating history —
+
+   ```bash
+   python3 scripts/make_worktree.py \
+     --repo <repo> \
+     --path <integration-worktree> \
+     --branch agent/<feature>/integration \
+     --attach \
+     --metadata <run-dir>/workspaces/integration.json
+   ```
+
+   `--attach` checks out the existing branch at its tip and records `attached: true` in the metadata; without it the script refuses to touch an existing branch (a new run's `--start` create cannot resume). Then rerun the service availability check from inside the re-created worktree, since a second checkout is a different environment.
+6. Recompute the ready frontier from the reconciled state.
 
 A commit already reachable from the integration branch must never be redispatched. A ticket marked `running` whose worker or workspace disappeared is stale, not automatically failed; inspect its report, branch, patch, and Git status before deciding whether to recover, integrate, or replace it.
 

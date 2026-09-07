@@ -63,7 +63,7 @@ python3 <skill-dir>/scripts/index_tickets.py <ticket-dir> \
   --output <run-dir>/ticket-index.json
 ```
 
-Stop on duplicate IDs, missing fields, unresolved blockers, or dependency cycles. Read `references/ticket-format.md` when repairing input or preparing worker context. Do not begin setup while `valid` is false.
+Stop on duplicate IDs, missing fields, unresolved blockers, dependency cycles, or a zero-ticket index — an empty or mistyped ticket directory is an input error to surface, not a run to start. Read `references/ticket-format.md` when repairing input or preparing worker context. Do not begin setup while `valid` is false.
 
 ### 4. Corroborate completion claims and compute open work
 

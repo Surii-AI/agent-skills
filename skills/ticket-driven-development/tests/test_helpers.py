@@ -92,6 +92,28 @@ class TicketIndexerTests(unittest.TestCase):
             result = run(["python3", str(SCRIPTS / "index_tickets.py"), str(tickets)], expected=2)
             self.assertIn("dependency cycle detected", result.stderr)
 
+    def test_rejects_empty_ticket_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            tickets = Path(temp)
+            result = run(["python3", str(SCRIPTS / "index_tickets.py"), str(tickets)], expected=2)
+
+    def test_rejects_nested_ticket_layout_with_hint(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            tickets = Path(temp)
+            nested = tickets / "wave-1"
+            nested.mkdir()
+            (nested / "01-ticket.md").write_text(
+                "# 01: Ticket 01\n\n"
+                "**What to build:** Outcome 01.\n\n"
+                "**Blocked by:** None\n\n"
+                "- [ ] It works.\n",
+                encoding="utf-8",
+            )
+            result = run(["python3", str(SCRIPTS / "index_tickets.py"), str(tickets)], expected=2)
+            self.assertIn("no ticket files (*.md) found", result.stderr)
+            self.assertIn("exist in subdirectories", result.stderr)
+            self.assertIn("01-ticket.md", result.stderr)
+
     def test_source_complete_status_and_reconcile_warning(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             tickets = Path(temp)
@@ -270,7 +292,6 @@ class GitHelperTests(unittest.TestCase):
                 ]
             )
             self.assertIn("app.txt", package.read_text(encoding="utf-8"))
-
             issues = root / "issues"
             issues.mkdir()
             (issues / "01-change.md").write_text(
@@ -342,6 +363,43 @@ class GitHelperTests(unittest.TestCase):
             self.assertEqual(updated["ready_frontier"], ["02"])
             self.assertEqual(updated["tickets"]["02"]["status"], "ready")
             self.assertIn("reconciliation", ledger.read_text(encoding="utf-8"))
+
+    def test_worktree_attach_to_existing_branch(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            repo = self.make_repo(root)
+            branch = "agent/demo/integration"
+            run(["python3", str(SCRIPTS / "make_worktree.py"), "--repo", str(repo),
+                 "--path", str(root / ".runs/integration"), "--branch", branch,
+                 "--metadata", str(root / "first.json")])
+            tip = git(repo, "rev-parse", branch)
+            git(repo, "worktree", "remove", str(root / ".runs/integration"))
+
+            result = run(["python3", str(SCRIPTS / "make_worktree.py"), "--repo", str(repo),
+                          "--path", str(root / ".runs/integration-2"), "--branch", branch,
+                          "--metadata", str(root / "attached.json"), "--attach"])
+            metadata = json.loads(result.stdout)
+            self.assertTrue(metadata["attached"])
+            self.assertEqual(metadata["base_sha"], tip)
+            self.assertEqual(git(root / ".runs/integration-2", "branch", "--show-current"), branch)
+
+    def test_worktree_attach_requires_existing_branch_and_create_rejects_existing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            repo = self.make_repo(root)
+            missing = run(["python3", str(SCRIPTS / "make_worktree.py"), "--repo", str(repo),
+                           "--path", str(root / ".runs/wt"), "--branch", "agent/demo/none",
+                           "--metadata", str(root / "m.json"), "--attach"], expected=2)
+            self.assertIn("branch does not exist", missing.stderr)
+
+            run(["python3", str(SCRIPTS / "make_worktree.py"), "--repo", str(repo),
+                 "--path", str(root / ".runs/first"), "--branch", "agent/demo/integration",
+                 "--metadata", str(root / "first.json")])
+            exists = run(["python3", str(SCRIPTS / "make_worktree.py"), "--repo", str(repo),
+                          "--path", str(root / ".runs/second"), "--branch", "agent/demo/integration",
+                          "--metadata", str(root / "second.json")], expected=2)
+            self.assertIn("--attach", exists.stderr)
+
 
     def test_reconcile_cherrypick_evidence_and_artifact_aware_dirty(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

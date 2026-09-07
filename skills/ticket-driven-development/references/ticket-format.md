@@ -58,7 +58,7 @@ python3 scripts/index_tickets.py .scratch/<feature>/issues \
   --output <run-dir>/ticket-index.json
 ```
 
-The command exits with status `2` for missing required fields, duplicate IDs, unresolved blocker declarations, missing blockers, or dependency cycles. Do not begin implementation when `valid` is false.
+The command exits with status `2` for missing required fields, duplicate IDs, unresolved blocker declarations, missing blockers, dependency cycles, or a directory containing no ticket files at all — an empty or mistyped ticket directory is an input error, never an empty run, and a layout that nests tickets in subdirectories is reported with their paths so the correct directory can be passed. Do not begin implementation when `valid` is false.
 
 `ready_frontier` reflects source statuses only at initial indexing. During a run, compute readiness from controller-owned `state.json`: a ticket is ready when it is not complete and every blocker is `verified`, `integrated` with its required checkpoint passed, or explicitly `skipped` by an approved ruling.
 

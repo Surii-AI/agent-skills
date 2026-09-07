@@ -52,7 +52,7 @@ For every completed worker, batch the verification, packaging, and transition sh
 
 Do not launch a merger agent for a clean Git operation. If Git reports a conflict, abort the automatic operation, preserve both sides, save the conflict evidence, and use `templates/conflict-resolver-prompt.md` for one narrow resolver.
 
-Smoke-check each integration per its risk tier — eliding the run when the worker-verified and integration tree hashes are equal, as defined in `references/verification-policy.md` — then recompute the frontier immediately: a ticket's dependents are gated by that ticket's own checkpoint, never by a sibling still under review. Only high-risk runs keep a wave-wide barrier — smoke the whole integration state before any further dispatch. Newly unblocked tickets must start from the updated integration branch, never from a sibling branch. Independent ticket reviews are read-only and conflict-free: dispatch them as one parallel batch rather than one at a time.
+Smoke-check each integration per its risk tier — eliding the run only when the worker-verified and integration tree hashes are equal (rule in `references/verification-policy.md`) — then recompute the frontier immediately: a ticket's dependents are gated by that ticket's own checkpoint, never by a sibling still under review. Only high-risk runs keep a wave-wide smoke barrier before further dispatch. Newly unblocked tickets must start from the updated integration branch, never from a sibling branch. Independent ticket reviews are read-only and conflict-free: dispatch them as one parallel batch rather than one at a time.
 
 ## Stop conditions
 

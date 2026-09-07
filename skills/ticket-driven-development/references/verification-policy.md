@@ -14,6 +14,19 @@ Classify the ticket before dispatch. If evidence spans categories, use the highe
 
 Treat unknown risk as medium until classified. Treat uncertain security, concurrency, persistence, or release effects as high.
 
+## Pair treatment gate
+
+Pairing splits judgment from execution: the senior guide and the plan-aware reviewer run on the strongest available model, where reasoning quality pays; the junior implementer runs on the fastest write-capable model, where token bulk lives. Apply the gate during preflight, per ticket:
+
+| Risk | Treatment |
+|---|---|
+| Low | Direct dispatch: one implementer on the default tier, existing flow unchanged. |
+| Medium, High | Senior guide first (`templates/guide-prompt.md`), then a junior implementer executing the guidance, then one plan-aware review. |
+
+A pairing override the user declared at invocation is authoritative in either direction. Tickets whose entire output is unversioned artifacts skip the pair — there is no implementation to plan. Record the pairing decision for every ticket in the ledger before dispatch.
+
+Guide dispatches are read-only: batch the guides of independent ready tickets concurrently, exactly like reviews. Guidance is pinned to the junior's expected start SHA; regenerate it whenever the actual start SHA differs. A guide may stop with `NEEDS_CONTEXT`, `NEEDS_SPLIT`, or `BLOCKED` — handle those exactly like implementer stops (`references/recovery.md`), at guide prices instead of implementer prices: the gate exists to catch malformed tickets before a build agent burns a workspace on them.
+
 ## Service availability preflight
 
 Before the first dispatch, determine whether the repository's checkpoints need external services, using only the repository's own declarations — never an assumed stack:
@@ -63,7 +76,9 @@ When the two tree hashes are equal, the integration head is byte-identical to th
 The elision is void whenever the trees differ: the integration base moved, another ticket landed first, or a conflict was resolved. Then run the smoke checkpoint normally. High-risk runs may keep a wave-wide smoke barrier by choice even when trees match; record that choice as a ruling.
 
 ## Review and repair
-Give a ticket reviewer the ticket, risk, implementer report, packaged base-to-head diff, relevant specification pointer, the interface notes of any blockers it builds on, and scoped repository instructions. Require evidence tied to acceptance criteria. Do not ask it to rediscover the full codebase or rerun the full suite without a concrete doubt.
+Give a ticket reviewer the ticket, risk, the senior guidance when the ticket was guided, implementer report, packaged base-to-head diff, relevant specification pointer, the interface notes of any blockers it builds on, and scoped repository instructions. Require evidence tied to acceptance criteria. Do not ask it to rediscover the full codebase or rerun the full suite without a concrete doubt.
+
+Route repair by finding label. `IMPLEMENTATION` findings go to a repair worker with the unchanged guidance, the exact findings, and the current base. `PLAN` findings go back to the senior guide for one revision, after which the junior re-executes the affected steps from the revised guidance. A plan revision consumes one of the repair rounds, and a paired ticket accumulates at most three senior touches — guide, plan-aware review, and one revision or re-review — before the cap forces a stop-and-choose.
 
 Cap ticket repair at two rounds. Follow up with the original worker only when its task-local context and workspace remain valid. Otherwise start a fresh repair worker with the original ticket, implementation report, review file, current integration base, and exact blocking findings.
 

@@ -35,11 +35,13 @@ Verify that the skill was explicitly invoked. Open `/settings` and ensure **Task
 
 Use the built-in `task` agent for implementation and `reviewer` for independent review. Do not require custom `.omp/agents` files in version 0.1; Agent Skills cannot install those definitions portably.
 
+The guide role adds a hard preflight dependency: the `i-have-adhd` skill whose rules shape every guidance document. Resolve its file before the first dispatch — in OMP, `skill://i-have-adhd/SKILL.md`, typically installed at `~/.agents/skills/i-have-adhd/SKILL.md` in user scope or the repository-local equivalent — verify it is readable, and pass the resolved absolute path as `{{adhd_skill_path}}` in every guide dispatch. If it cannot be resolved, stop before dispatching anything and report the missing dependency; do not silently substitute an unshaped guide.
+
 ### Dispatch
 
 When two or more tickets are parallel-safe, use one batch call. Put only compact shared invariants in batch `context`; make each item’s `task` self-contained and point it to its ticket, report path, workspace expectations, specification excerpt, and dependency interface notes. Give every item a stable name such as `t02-passwordless-signin`.
 
-Set `isolated: true` for concurrent implementers and request branch integration **only when the parent/controller workspace is the integration worktree**, because OMP bases and reapplies isolated work against the parent checkout. If the active controller remains in the user checkout, create explicit child worktrees from the integration SHA and direct non-isolated workers to those absolute paths instead. Never let native isolation apply a ticket directly to the user checkout merely for convenience.
+Set `isolated: true` for concurrent implementers and request branch integration **only when the parent/controller workspace is the integration worktree**, because OMP bases and reapplies isolated work against the parent checkout. If the active controller remains in the user checkout, create explicit child worktrees from the integration SHA and direct non-isolated workers to those absolute paths instead. Never let native isolation apply a ticket directly to the user checkout merely for convenience. Guides are read-only against the integration worktree: batch a wave's guides concurrently with each other without isolation.
 
 Use an invocation-specific structured output schema matching the compact implementer contract:
 
@@ -74,12 +76,42 @@ Use the same mechanism for ticket reviewers with this schema, so verdicts reach 
     "summary": {"type": "string"}
   }
 }
+```
+
+And for senior guide dispatches with this schema, so plan readiness reaches the controller as data:
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "ticket", "guidance", "steps", "concerns"],
+  "properties": {
+    "status": {"enum": ["PLAN_READY", "NEEDS_CONTEXT", "NEEDS_SPLIT", "BLOCKED"]},
+    "ticket": {"type": "string"},
+    "guidance": {"type": "string"},
+    "steps": {"type": "integer"},
+    "concerns": {"type": "string"}
+  }
+}
+```
 
 Set strict schema mode when available. Keep worker-spawned helpers prohibited: use an agent without `spawns` and without access to recursive task delegation. A normal built-in `task` worker may have broader tools, so state the prohibition explicitly in every assignment.
 
+### Model tiers and the guide role
+
+Paired tickets split judgment from execution, so role selection is part of dispatch:
+
+| Role | Model tier | Assignment shape |
+|---|---|---|
+| Senior guide | Strongest available (extended-thinking tier) | Read-only; renders `templates/guide-prompt.md`; returns the guide contract. |
+| Junior implementer | Fastest write-capable (flash/mini tier) | Standard implementer assignment plus the guidance pointer. |
+| Plan-aware reviewer | Strongest available review agent | Standard reviewer assignment plus the guidance pointer. |
+
+When the environment exposes per-task model selection, map the tiers explicitly — for example `opus`-class for the senior roles and `haiku`-class for the junior, or GLM-5.3 at `:high` thinking for the senior roles and GLM-5.3-flash at `:medium` for the junior (medium, not low: the junior must still notice when the code proves a plan step wrong). When it does not (OMP's task tool today exposes agent types, not per-task models), run both senior and junior roles on the default `task` agent and use `reviewer` for the plan-aware review: the pair still earns its keep through context isolation, because the guide's investigation never enters the junior's context window and the plan is re-derived from repository evidence instead of conversation memory.
+
 ### Results and repair
 
-Read the compact structured result first, then the report and task artifact only when needed. Record the worker ID, branch or patch metadata, base SHA, head SHA, report path, token/context measurements when available, and verdict in run state.
+Read the compact structured result first, then the report and task artifact only when needed. Record the worker ID, branch or patch metadata, base SHA, head SHA, report path, guidance path, token/context measurements when available, and verdict in run state.
 
 Capture measurements at collection time: the task completion notification carries `total_tokens` and `duration_ms` in its result metadata — the line the notification prints alongside the output (not the worker's own report, which cannot see it). Extract them at delivery; the worker is torn down afterward and its transcript is not a durable source. Pass them to the same `run_state.py transition --quiet` call that records the result (`--context-tokens`, `--duration-ms`, `--requests`). The script derives duration from timestamps when the flag is omitted, but it cannot invent token counts after the fact.
 
@@ -97,4 +129,4 @@ If the environment exposes a subagent or task API, map it to the capability cont
 
 When native isolation is absent or opaque, create the integration and child worktrees with `scripts/make_worktree.py`. Start every parallel child from the exact same integration SHA, require a commit, and cherry-pick clean commits into the integration branch. Never ask a language model to perform a clean cherry-pick that Git can do deterministically.
 
-If the environment cannot launch subagents at all, retain the ticket graph, integration worktree, risk gates, state ledger, and context boundaries, but execute the ready frontier sequentially in the controller. Report that concurrency was unavailable; do not fake parallelism.
+If the environment cannot launch subagents at all, retain the ticket graph, integration worktree, risk gates, pairing decisions, state ledger, and context boundaries, but execute the ready frontier sequentially in the controller — the controller itself then acts as senior guide and junior in one seat, writing the guidance document before implementing from it. Report that concurrency was unavailable; do not fake parallelism.

@@ -179,6 +179,33 @@ class RunStateTransitionTests(unittest.TestCase):
             self.assertIn("single filesystem path", result.stderr)
             self.assertIsNone(self.read(state)["tickets"]["01"]["review_path"])
 
+    def test_review_verdict_persists(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            state = self.make_initialized_state(root)
+            self.transition(state, "--status", "implemented", "--review-verdict", "pass")
+            self.assertEqual(self.read(state)["tickets"]["01"]["review_verdict"], "pass")
+
+    def test_guidance_path_recorded_and_whitespace_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            state = self.make_initialized_state(root)
+            self.transition(state, "--status", "running", "--guidance", str(root / "guidance" / "01.md"))
+            ticket = self.read(state)["tickets"]["01"]
+            self.assertEqual(ticket["guidance_path"], str(root / "guidance" / "01.md"))
+            self.transition(
+                state,
+                "--status",
+                "running",
+                "--guidance",
+                "path with spaces.md",
+                expected=2,
+            )
+            self.assertEqual(
+                self.read(state)["tickets"]["01"]["guidance_path"],
+                str(root / "guidance" / "01.md"),
+            )
+
     def test_full_sha_and_plain_path_still_accepted(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

@@ -12,6 +12,7 @@ ledger.md
 ticket-index.json
 workspaces/
 reports/
+guidance/
 reviews/
 diffs/
 conflicts/
@@ -34,8 +35,7 @@ python3 scripts/run_state.py init \
   --integration-worktree <integration-worktree> \
   --spec <spec-path>
 ```
-
-Update a ticket at every durable boundary: dispatched, implemented, reviewed, repair requested, integrated, checkpoint passed, or failed. Use `scripts/run_state.py transition`; record assumptions or deliberately deferred findings with its `record` command. Pass `--quiet` to either command to print a one-line summary instead of the full state JSON — at scale the full JSON is tens of KiB per call and the durable files remain the authoritative record.
+Update a ticket at every durable boundary: dispatched, guided, implemented, reviewed, repair requested, integrated, checkpoint passed, or failed. Use `scripts/run_state.py transition`; pass `--guidance <path>` when a senior guide produced the ticket's plan, so state records where the plan lives. Record assumptions or deliberately deferred findings with its `record` command. Pass `--quiet` to either command to print a one-line summary instead of the full state JSON — at scale the full JSON is tens of KiB per call and the durable files remain the authoritative record.
 
 `transition` enforces the terminal-status contract so state cannot lie: it derives `duration_ms` from the ticket's start/finish timestamps unless given an explicit value, archives a resolved `last_error` into `repair_history` when a ticket reaches `integrated`, `verified`, or `skipped`, and rejects `integrated` without a reachable commit (`--integrated-sha` or `--head-sha`). Terminal statuses are canonical: a ticket with a commit ends `integrated`; a ticket whose entire output is unversioned artifacts — docs, sign-off packages, reports — ends `verified` with its report path as evidence. Record post-integration checkpoint outcomes in the ledger rather than restamping a code ticket `verified`.
 
@@ -62,6 +62,7 @@ Preserve failed or dirty workspaces until classified. Record the error and choos
 | Worker stopped with `NEEDS_CONTEXT` | Add only the named missing context and follow up or replace. |
 | Worker stopped with `NEEDS_SPLIT` | Split the ticket contract with user approval when scope changes; do not improvise hidden subtickets. |
 | Worker vanished with dirty changes | Preserve the workspace, inspect the diff, and decide whether to salvage or discard explicitly. |
+| Guide stopped with `NEEDS_CONTEXT` or `NEEDS_SPLIT` | Same handling as implementer stops, before any implementer is dispatched: add only the named context, or split the ticket contract with user approval. |
 | Dispatched worker stalls (no progress, no result) | Cancel it after the bounded stall window — 2× the median duration of completed workers this run, floor ten minutes, unless the user declared one — then preserve any partial workspace, redispatch once fresh or complete the step controller-side; record the intervention in the ledger. |
 | Base or integration branch moved unexpectedly | Stop, record both SHAs, and reconcile before any new dispatch. |
 

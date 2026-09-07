@@ -181,7 +181,7 @@ def transition(args: argparse.Namespace) -> dict[str, Any]:
     ):
         if value is not None and not SHA_PATTERN.match(value):
             raise RuntimeError(f"{flag} must be a 7-40 hex commit SHA, got: {value!r}")
-    for flag, value in (("--report", args.report), ("--review", args.review)):
+    for flag, value in (("--report", args.report), ("--review", args.review), ("--guidance", args.guidance)):
         if value is not None and (str(value) != str(value).strip() or any(ch.isspace() for ch in str(value))):
             raise RuntimeError(f"{flag} must be a single filesystem path with no whitespace, got: {value!r}")
     if args.status == "integrated" and not (
@@ -202,6 +202,7 @@ def transition(args: argparse.Namespace) -> dict[str, Any]:
         "head_sha": args.head_sha,
         "report_path": str(args.report.resolve()) if args.report else None,
         "review_path": str(args.review.resolve()) if args.review else None,
+        "guidance_path": str(args.guidance.resolve()) if args.guidance else None,
         "review_verdict": args.review_verdict,
         "integrated_sha": args.integrated_sha,
         "last_error": args.error,
@@ -308,6 +309,7 @@ def build_parser() -> argparse.ArgumentParser:
     change.add_argument("--review-verdict", choices=["pass", "changes-requested", "blocked", "skipped"])
     change.add_argument("--integrated-sha")
     change.add_argument("--integration-head")
+    change.add_argument("--guidance", type=Path, help="Senior guidance document for this ticket, when guided")
     change.add_argument("--increment-retry", action="store_true")
     change.add_argument("--error")
     change.add_argument("--risk", choices=["low", "medium", "high"])

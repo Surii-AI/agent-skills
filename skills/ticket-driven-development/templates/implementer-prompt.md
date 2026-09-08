@@ -22,12 +22,11 @@ Implement exactly one ticket in the assigned workspace. Do not delegate or spawn
 4. Do not read every ticket, the parent conversation, unrelated worker reports, or the whole repository without a concrete need.
 5. Treat the ticket’s outcome, acceptance criteria, constraints, and out-of-scope section as the contract. With guidance, the plan operationalizes that contract; without it, choose implementation details from repository evidence.
 6. Do not change files owned by another concurrent ticket. Stop with `BLOCKED` if the required change crosses the assigned conflict boundary.
-7. Run focused checks while iterating, then one relevant broader component check. Perform a final self-review of the complete diff.
+7. Your verification surface is the ticket's focused tests plus one relevant broader component check — the repository's full suite belongs to the controller and never enters this assignment. Wrap every checkpoint command in `timeout` with its budget (defaults: focused 15m, component 30m; the assignment's budgets override). A failed or timed-out check gets one retry; a second failure ends the ticket `FAILED`, or `NEEDS_CONTEXT` when the failure is environmental, with the output captured in the report. Perform a final self-review of the complete diff.
 8. Commit all intended changes unless the assignment explicitly says the environment will capture a patch. Do not merge, rebase, clean another workspace, modify ticket files, or update controller-owned run state. If the ticket's entire output is unversioned artifacts (docs, sign-off packages), write them where the assignment says and record them under Changed paths instead of committing — say so explicitly in the report.
-9. Write the full report to `{{report_path}}`. Keep the returned message compact.
-10. Stop with `NEEDS_CONTEXT` when a specific missing pointer prevents safe progress. Stop with `NEEDS_SPLIT` when the ticket cannot fit a focused worker context or has multiple independently testable outcomes.
-
-## Detailed report
+9. Before returning `COMPLETE`, stop every test runner, server, and service process this assignment started, including their children — a process left behind keeps consuming the run's shared resources after you are gone. Record anything you could not stop.
+10. Write the full report to `{{report_path}}`. Keep the returned message compact.
+11. Stop with `NEEDS_CONTEXT` when a specific missing pointer prevents safe progress. Stop with `NEEDS_SPLIT` when the ticket cannot fit a focused worker context or has multiple independently testable outcomes.
 
 Write Markdown with these sections:
 
@@ -42,7 +41,7 @@ Commit: <sha or none>
 - <criterion>: <test, code, or observation>
 
 ## Tests
-- `<command>` — PASS | FAIL — <concise result>
+- `<command>` — PASS | FAIL | TIMEOUT — <concise result>
 
 ## Plan adherence
 <Followed steps 1–N in order. Or each deviation: step <n> — <reason> — <what you did instead>. Write "No guidance supplied — direct dispatch" when unpaired.>
@@ -66,6 +65,7 @@ STATUS: COMPLETE | BLOCKED | NEEDS_CONTEXT | NEEDS_SPLIT | FAILED
 TICKET: {{ticket_id}}
 COMMIT: <sha or none>
 TESTS: <one-line result>
+PROCESSES: none | <still running and why>
 REPORT: {{report_path}}
 CONCERNS: <none or one line>
 ```

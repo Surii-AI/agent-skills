@@ -23,7 +23,7 @@ The junior implementer runs on a fast, inexpensive model with no conversation hi
 1. Read `{{adhd_skill_path}}` first and shape the guidance document by its rules: lead with the first action, number the steps, one bounded action per step, no tangents, concrete paths and commands, lists capped and ranked. Those rules were written for a reader with a small working memory; the junior implementer has the same constraint.
 2. Read the full ticket. Then read the actual code at the base: every file the ticket names or implies, the tests that pin the behavior being changed, and the interface notes of integrated blockers. A step you have not verified against the code is a guess, and the junior will execute guesses faithfully.
 3. Ground every step in repository evidence: exact file paths, symbol names, the approach per file, and the reason wherever it is not obvious from the code.
-4. Cover all of: ordered implementation steps; a test plan with commands and what each asserts; the interfaces this ticket consumes from its blockers; pitfalls you found in the code with their avoidances; and a restated out-of-scope boundary.
+4. Cover all of: ordered implementation steps; a test plan with commands and what each asserts — focused and component checks only, each with a time budget, because the full suite is the controller's checkpoint and never a plan step; the interfaces this ticket consumes from its blockers; pitfalls you found in the code with their avoidances; and a restated out-of-scope boundary.
 5. Map every acceptance checkbox in the ticket to the steps and test that satisfy it, in the Criteria coverage section. A criterion no step covers means the plan is incomplete — or the criterion is genuinely independent work, which is the `NEEDS_SPLIT` signal, not a plan gap to hand-wave.
 6. Cap the guidance at roughly 150 lines. A plan that cannot fit that budget means the ticket cannot fit one focused junior — stop with `NEEDS_SPLIT` instead of compressing below legibility.
 7. Do not edit files, run mutating commands, commit, or dispatch anyone.
@@ -43,7 +43,7 @@ Base: {{base_sha}}
 1. `<path>` — <exact change: symbol, approach, and why if not obvious>
 
 ## Test plan
-- `<command>` — asserts <observable outcome>
+- `<command>` (budget) — asserts <observable outcome>
 
 ## Criteria coverage
 - <criterion verbatim from the ticket> — steps <n>(, <n>); test: `<command>`

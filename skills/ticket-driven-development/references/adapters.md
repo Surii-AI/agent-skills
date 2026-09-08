@@ -43,6 +43,8 @@ When two or more tickets are parallel-safe, use one batch call. Put only compact
 
 Set `isolated: true` for concurrent implementers and request branch integration **only when the parent/controller workspace is the integration worktree**, because OMP bases and reapplies isolated work against the parent checkout. If the active controller remains in the user checkout, create explicit child worktrees from the integration SHA and direct non-isolated workers to those absolute paths instead. Never let native isolation apply a ticket directly to the user checkout merely for convenience. Guides are read-only against the integration worktree: batch a wave's guides concurrently with each other without isolation.
 
+Steering a worker that is already running is a bounded follow-up, never a broadcast: one message naming the exact missing check and its timeout budget, or the controller runs that scoped check itself in the worker's workspace at collection. On OMP, a running task worker keeps its context, and each steering message expands it — hold to one follow-up per collection cycle. Worker assignments cover focused and component checks; the repository's full suite executes from the controller at the final gate or a milestone seat, because N parallel workers each asked to run it are N concurrent suites contending for the same infrastructure.
+
 Use an invocation-specific structured output schema matching the compact implementer contract:
 
 ```json

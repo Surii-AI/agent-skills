@@ -42,7 +42,7 @@ The controller owns scheduling and state. Workers must not spawn helpers, modify
 
 ## Integrate results
 
-For every completed worker, batch the verification, packaging, and transition shell work into one invocation per result — controller round-trips between collection steps are a measured, avoidable cost:
+Batch collection applies to every completed worker (SKILL.md workflow step 9): run the verification, packaging, and transition shell work as one invocation per result:
 
 1. Confirm its report exists and the claimed commit or patch matches the assigned workspace.
 2. Confirm focused and component checks passed or classify the result as incomplete.

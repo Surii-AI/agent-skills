@@ -100,4 +100,4 @@ After every ticket is integrated:
 
 **Ambient failure adjudication.** A failing full suite is a regression until proven otherwise. Reclassify a failure as pre-existing ambient flake only when all of these hold: the failing files are untouched by the base-to-head diff; the same suite fails nondeterministically across reruns (different tests or orderings each run); and the failing tests pass in isolation and at the exact final head. Then record the evidence as a deferred observation, report those tests as pre-existing and unverified — never as passing — and proceed. A failure in a file the branch touches, or any deterministic failure, blocks completion.
 
-Do not claim success when a required check was skipped. Report it as unverified with the reason.
+Report every skipped required check as unverified, with the reason.

@@ -77,7 +77,7 @@ Preserve failed or dirty workspaces until classified. Record the error and choos
 | Worker stopped with `NEEDS_SPLIT` | Split the ticket contract with user approval when scope changes; do not improvise hidden subtickets. |
 | Worker vanished with dirty changes | Preserve the workspace, inspect the diff, and decide whether to salvage or discard explicitly. |
 | Guide stopped with `NEEDS_CONTEXT` or `NEEDS_SPLIT` | Same handling as implementer stops, before any implementer is dispatched: add only the named context, or split the ticket contract with user approval. |
-| Dispatched worker stalls (no progress, no result) | Cancel it after the bounded stall window — 2× the median duration of completed workers this run, floor ten minutes, unless the user declared one — then preserve any partial workspace, redispatch once fresh or complete the step controller-side; record the intervention in the ledger. |
+| Dispatched worker stalls (no progress, no result) | Cancel after the stall window — SKILL.md workflow step 8 defines it: 2× the longest checkpoint budget the assignment declares, floor fifteen minutes; a user-declared window overrides — then preserve any partial workspace, redispatch once fresh or complete the step controller-side; record the intervention in the ledger. |
 | Base or integration branch moved unexpectedly | Stop, record both SHAs, and reconcile before any new dispatch. |
 
 ## Cleanup

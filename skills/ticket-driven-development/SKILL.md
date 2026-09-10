@@ -22,9 +22,9 @@ Act as the **controller**. Convert an approved directory of Markdown tickets int
 8. Cap ticket repair at two rounds, then stop, split, escalate, or ask for a decision.
 9. Persist `state.json` and an append-only `ledger.md` as the run database — conversation memory is not durable.
 10. Mark a ticket complete only after its change is reachable from the integration branch and its applicable checkpoint passes. Terminal statuses are canonical — a ticket with a commit ends `integrated`; artifact-only output ends `verified` with its report as evidence. Checkpoint outcomes and review verdicts are recorded in the ledger, never by restamping a status (`references/recovery.md` holds the full contract).
-11. A source status claiming completion is a claim, not evidence: corroborate it against the repository before trusting it. Corroborated work is never redispatched; dependents wait while a claim is uncorroborated.
+11. A source status claiming completion is a claim, not evidence: corroborate it against the repository before trusting it. Corroborated work is never redispatched.
 12. Mutate the repository only when open work exists. When corroboration leaves no incomplete ticket, end the run with zero repository changes.
-13. Pair medium- and high-risk implementation tickets: a senior guide plans from repository evidence, a junior implementer executes the plan, and one plan-aware review verifies both the plan's soundness and the diff's adherence. Guidance is a durable, base-pinned artifact, never conversation memory.
+13. Pair medium- and high-risk implementation tickets: a senior guide plans from repository evidence, a junior implementer executes the plan, one plan-aware review verifies both (gate in `references/verification-policy.md`). Guidance is a durable, base-pinned artifact, never conversation memory.
 
 ## Read references only when needed
 
@@ -38,7 +38,7 @@ Act as the **controller**. Convert an approved directory of Markdown tickets int
 
 ## Workflow
 
-### 1. Confirm inputs and authority
+### 2. Preflight: repository safety, tooling, and run directory
 
 Require an approved specification or substantial request, a local directory containing one Markdown file per ticket, and a Git repository. Ask only when a missing decision changes behavior, ticket boundaries, acceptance criteria, dependencies, or an irreversible design choice.
 
@@ -48,9 +48,9 @@ This skill executes tickets; ticket shaping happens before it. If tickets are ab
 
 Read applicable repository instruction files. Record the repository root, current branch, current `HEAD`, worktree list, and dirty status. Pre-existing user changes are left exactly as found.
 
-Verify the environment can actually run the configured checkpoints before the first dispatch. Discover the repository's own service tooling instead of assuming any particular stack — task-runner targets, package scripts, compose or container configuration, CI workflow — to determine whether the test suite needs external services at all, and the repository's canonical command for each one it needs. A worker that cannot run its focused tests will either commit unverified work or grind; both violate the verification contract. Availability is half the preflight: also measure what each checkpoint costs to run — a full suite that works but takes forty minutes changes which checks gate each integration and how many may run at once. Run the full discovery procedure in `references/verification-policy.md`.
+Verify the environment can actually run the configured checkpoints before the first dispatch: discover the repository's own service tooling, measure what each checkpoint costs, and — when the invocation names a prior run's `repo-profile.json` that `scripts/repo_profile.py reuse` reports reusable — adopt its recorded commands and budgets and re-verify availability only. The full discovery, availability, worktree re-check, and background cost-probe procedure is in `references/verification-policy.md` ("Service availability preflight").
 
-Resolve the guide role's hard dependency during preflight: the `i-have-adhd` skill file that shapes every guidance document (per-environment resolution in `references/adapters.md`). If it cannot be resolved and read, stop before any dispatch and report the missing dependency rather than dispatching an unshaped guide.
+The guide role has one hard preflight dependency: the `i-have-adhd` skill file that shapes every guidance document. Resolve and read it per `references/adapters.md`; an unresolved dependency stops the run before any dispatch.
 
 Choose an ignored run directory such as `.scratch/<feature>/runs/<run-id>/` and verify with `git check-ignore` that it is actually ignored — repositories sometimes track `.scratch/`, in which case pick another ignored path or keep run state outside the repository. The integration worktree path must be outside the repository or ignored before creation.
 
@@ -63,7 +63,7 @@ python3 <skill-dir>/scripts/index_tickets.py <ticket-dir> \
   --output <run-dir>/ticket-index.json
 ```
 
-Stop on duplicate IDs, missing fields, unresolved blockers, dependency cycles, or a zero-ticket index — an empty or mistyped ticket directory is an input error to surface, not a run to start. Begin setup only when `valid` is true. Read `references/ticket-format.md` when repairing input or preparing worker context.
+Stop on duplicate IDs, missing fields, unresolved blockers, dependency cycles, or a zero-ticket index — an empty or mistyped ticket directory is an input error to surface, not a run to start. Begin setup only when `valid` is true for the ticket directory the invocation named; when it is false, report the validation errors and stop — never self-select another ticket directory. Read `references/ticket-format.md` when repairing tickets or preparing worker context.
 
 ### 4. Corroborate completion claims and compute open work
 
@@ -71,6 +71,8 @@ The index reports every ticket whose source status claims completion as a warnin
 
 - **Corroborated** — commits, merged branches, tags, or changelog entries reachable from the recorded base that plausibly implement the ticket's outcome. Record the evidence (commit SHA or file) with the ticket. A corroborated ticket is complete: it satisfies its dependents and is never redispatched.
 - **Uncorroborated** — the repository shows no trace of the claimed work. This is the user's decision, not the controller's: record a ruling request asking whether to reopen the ticket, and schedule nothing that depends on it until the user rules.
+
+Run `scripts/corroborate.py --repo <repo> --index <run-dir>/ticket-index.json [--since <base-sha>]` as the scripted first pass; the controller adjudicates only `needs_review` and uncorroborated tickets — corroborated-by-script tickets take the **Corroborated** path with the commit SHA as recorded evidence.
 
 If corroboration leaves no incomplete ticket, stop and report the directory as a historical record: no integration branch, worktree, `state.json`, or ledger, and the repository exactly as found. Continue to setup only when open work remains or the user reopens a claim.
 
@@ -89,7 +91,7 @@ python3 <skill-dir>/scripts/make_worktree.py \
 
 If the active environment cannot move the controller into that worktree, keep the controller read-only in its original checkout and use absolute paths for all operations in the integration worktree. Use environment-native isolated children only when they are based on this integration worktree; otherwise use explicit child worktrees.
 
-A second checkout is a different environment, not just a different path: tooling keyed to checkout identity — compose project names, fixed ports, per-repo caches — can be healthy in the user checkout yet broken from the integration worktree. After creating it, rerun the service availability command from inside the worktree and record the outcome. When a duplicate service would collide with the healthy one (two compose projects claiming one database port, for example), point the worktree at the already-healthy shared service and record that decision. Sharing is sound while the checks are read-only or cheap; when the checkpoints themselves write to that shared service — one database node serving parallel worktrees — apply the contention rule in `references/verification-policy.md` before planning a parallel wave.
+A second checkout is a different environment, not just a different path: rerun the service availability command from inside the worktree and record the outcome. When a duplicate service would collide with a healthy one, point the worktree at the shared service; when the checkpoints themselves write to it, descend the service-isolation ladder ("Service availability preflight" in `references/verification-policy.md`). Record either decision.
 
 Any baseline verification — a green base-suite run, a service check, a build probe — happens inside this worktree once it exists: even a read-only test run in the user checkout writes build artifacts into the user's tree.
 
@@ -101,10 +103,10 @@ On an existing run, follow the resume protocol in `references/recovery.md` and r
 
 ### 7. Compute and classify the ready frontier
 
-A ticket is ready only when every blocker is integrated and its required checkpoint passed. Infer missing conflict domains from a narrow repository inspection. Read `references/scheduling.md` and choose:
+A ticket is ready only when every blocker is integrated and its required checkpoint passed. Infer missing conflict domains from a narrow repository inspection, using the repository's code-location tool when preflight found one. Read `references/scheduling.md` and choose:
 
 - **Sequential:** one fresh worker in the integration worktree when only one ticket is ready, domains overlap, or risk is high.
-- **Parallel:** at most four fresh workers by default — or the concurrency cap the user declared at invocation — in isolated child workspaces when at least two dependency-independent tickets have confidently disjoint conflict domains. A user-declared cap is authoritative: apply it without demanding prior-run evidence, but still lower it when the repository or test environment is fragile, and stay within the invariants (no concurrent writers in one checkout, disjoint domains only). Writer concurrency and checkpoint concurrency are different budgets: code may be written in parallel while suite executions take seats, per the contention rule in `references/verification-policy.md`.
+- **Parallel:** fresh workers in isolated child workspaces when at least two dependency-independent tickets have confidently disjoint conflict domains, within the concurrency policy of `references/scheduling.md` (default four; a user-declared cap is authoritative). Writer concurrency and checkpoint concurrency are different budgets: code may be written in parallel while suite executions take seats, per the contention rule in `references/verification-policy.md`. Child workspaces provision in the background through the guide wave (`references/scheduling.md`), so a junior launches when both its `PLAN_READY` and its provisioned workspace exist and a guide never waits on an install.
 
 Classify pairing per the gate in `references/verification-policy.md`: medium- and high-risk implementation tickets get a senior guide before their junior implementer; low-risk tickets and artifact-only tickets dispatch directly. A user-declared pairing override at invocation is authoritative. Record the decision per ticket in the ledger.
 
@@ -112,19 +114,19 @@ Record the chosen wave base. Start every parallel child from that exact integrat
 
 ### 8. Dispatch bounded guides and implementers
 
-Paired tickets dispatch a read-only senior guide first. Render `templates/guide-prompt.md` with the `i-have-adhd` skill path resolved at preflight: the guide reads the ticket and the code at the expected base, writes a bounded, repo-grounded plan to `<run-dir>/guidance/<ticket-id>.md`, and returns `PLAN_READY`, `NEEDS_CONTEXT`, `NEEDS_SPLIT`, or `BLOCKED`. Guides are read-only — batch sibling guides concurrently. A guide stop is handled exactly like an implementer stop, at guide prices: the gate exists to catch malformed tickets before a junior burns a workspace on them. On `PLAN_READY`, dispatch the junior implementer with the guidance pointer, and regenerate the guidance whenever the junior's actual start SHA differs from the guidance base.
+Paired tickets dispatch a read-only senior guide first. Render `templates/guide-prompt.md` with the `i-have-adhd` skill path resolved at preflight: the guide reads the ticket and the code at the expected base, writes a bounded, repo-grounded plan to `<run-dir>/guidance/<ticket-id>.md`, and returns `PLAN_READY`, `NEEDS_CONTEXT`, `NEEDS_SPLIT`, or `BLOCKED`. Guides are read-only — batch sibling guides concurrently. A guide stop is handled exactly like an implementer stop, at guide prices: the gate exists to catch malformed tickets before a junior burns a workspace on them. On `PLAN_READY`, dispatch the junior implementer with the guidance pointer; when the junior's actual start SHA differs from the guidance base, run `scripts/guidance_drift.py` and regenerate only on material drift — `--patch-base` re-pins a plan that stayed valid.
 
-Render `templates/implementer-prompt.md` for each ticket. Supply the full ticket, compact global constraints, precise specification/ADR pointers, relevant repository instructions, dependency commit/interface notes, the guidance pointer for paired tickets, workspace path, expected base SHA, and report path — and nothing else: the interview, all tickets, unrelated reports, and accumulated controller history stay out. Target an initial context below approximately 20k tokens when observable; treat 40k as a warning. Prepare a narrower excerpt or split the ticket instead of silently filling a large context window.
+Render `templates/implementer-prompt.md` for each ticket with `scripts/render_brief.py` (template plus a context file): the renderer errors on missing placeholders and warns on unused context keys, so both halves of the brief boundary — every assignment field present, nothing extra riding along — are enforced by the tool, not discipline. The judgment calls of what a brief carries (specification excerpts over whole files, dependency interface notes over transcripts, the ~20k-token initial-context target with 40k as the warning line, and citation resolution) live in the worker-brief boundary rules of `references/ticket-format.md`.
 
 Use the adapter in `references/adapters.md`, including its role-to-model-tier mapping, and structured return fields when supported. A worker may finish as `COMPLETE`, `BLOCKED`, `NEEDS_CONTEXT`, `NEEDS_SPLIT`, or `FAILED`.
 
-A stalled worker announces itself through silence, not failure. Its heartbeat is the observable evidence of progress: file changes in its workspace, a growing or freshly touched report file. Silence longer than twice the longest checkpoint budget the assignment declares — fifteen minutes minimum — means the worker is wedged on a hung command or looping without effect: ping it once, and if another such window passes with no change, cancel it, preserve the partial workspace, and either redispatch once from a fresh worker or complete the step yourself in the controller. A worker still running past its guidance's declared time-box plus half is equally stalled even with a heartbeat — slow grinding is a stall you are watching happen. A window derived from median completed durations hides both failures: when every worker is slow, the window stretches to match and never fires. Cancellation also stops the processes the worker spawned — a test runner that outlives its worker keeps consuming the resources the next worker needs. Record the intervention, its window, and its reason in the ledger; a silently absorbed stall is a lost audit event. A window the user declared at invocation overrides these defaults.
+A stalled worker announces itself through silence, not failure. Its heartbeat is the observable evidence of progress: file changes in its workspace, a growing or freshly touched report file. The **stall window** — twice the longest checkpoint budget the assignment declares, fifteen minutes minimum — is the silence budget after which the worker counts as wedged: ping it once, and if another stall window passes with no change, cancel it, preserve the partial workspace, and either redispatch once from a fresh worker or complete the step yourself in the controller. A worker still running past its guidance's declared time-box plus half is equally stalled even with a heartbeat — slow grinding is a stall you are watching happen. Derive the window from declared budgets, never from median completed durations: when every worker is slow, a median window stretches to match and never fires. Cancellation also stops the processes the worker spawned — a test runner that outlives its worker keeps consuming the resources the next worker needs. Record the intervention, its window, and its reason in the ledger; a silently absorbed stall is a lost audit event. A window the user declared at invocation overrides these defaults.
 
 Requirements discovered while workers are running reach them through one bounded channel: collection. Verify the returned report, and when evidence is missing, run that one scoped check yourself in the worker's workspace or dispatch a single follow-up naming the exact check and its timeout budget. A broadcast of new requirements into running workers multiplies across every seat — four juniors told to run the full suite before finishing become four suites contending for the same infrastructure, each stalling the others. The full configured suite runs where its cost is paid once: in the controller, at the final gate and risk-tiered milestones.
 
 ### 9. Verify and integrate each result
 
-For a complete result, run the verification, packaging, and state transition as one shell invocation per result rather than separate steps — controller round-trips between collection actions measured roughly a fifth of a four-ticket run's wall time:
+For a complete result, batch collection: verification, packaging, and state transition as one shell invocation per result rather than separate steps — controller round-trips between collection actions measured roughly a fifth of a four-ticket run's wall time:
 
 1. Confirm the report exists and the claimed commit/patch belongs to the assigned base and workspace.
 2. Confirm focused tests, a relevant component check, and self-review are recorded.
@@ -140,12 +142,12 @@ python3 <skill-dir>/scripts/package_diff.py \
 ```
 
 4. Apply the risk policy in `references/verification-policy.md`. Render `templates/reviewer-prompt.md` when review is required — on paired tickets the plan-aware reviewer also receives the guidance and labels each blocking finding `IMPLEMENTATION` or `PLAN`, which routes repair to the junior or back to the senior guide.
-5. If approved, integrate with deterministic Git. Confirm the ticket head is an ancestor of the integration head, then check elision before scheduling any smoke command: when the worker-verified and integration tree hashes are equal (routine after a clean cherry-pick onto an unmoved base), record both hashes as the checkpoint evidence and stop there. When the trees differ, run the smoke scoped to the ticket — its focused suite plus the components its diff touches, per the elision and scoping rules in `references/verification-policy.md`. The full configured suite is a final-gate and milestone check, never the per-ticket smoke.
+5. If approved, integrate with deterministic Git. Confirm the ticket head is an ancestor of the integration head, then check elision before scheduling any smoke command: when the worker-verified and integration tree hashes are equal (routine after a clean cherry-pick onto an unmoved base), record both hashes as the checkpoint evidence and stop there. When the trees differ, run the smoke scoped to the ticket — its focused suite plus the components its diff touches, selected with the repository's affected-test selector recorded at preflight (per the "Affected-check selection" section of `references/verification-policy.md`). The full configured suite is a final-gate and milestone check, never the per-ticket smoke.
 6. Persist every transition with `scripts/run_state.py transition --quiet`, recording measurements from the worker result at collection time — duration and context size are only reliably observable now, and backfilled numbers are guesses.
 
 A result with no repository change ends `verified`: confirm its artifacts landed at their assigned run-directory paths, with the report as evidence. A result with a commit ends `integrated`, per invariant 10.
 
-For review failure, perform no more than two repair rounds. `IMPLEMENTATION` findings go to a repair worker with the unchanged guidance; `PLAN` findings go back to the senior guide for one revision, after which the junior re-executes the affected steps. A plan revision consumes one of the two rounds. Resume the original worker only when its workspace survives; otherwise dispatch a fresh repair worker with the exact findings and current evidence.
+For review failure, route repair by finding label — `IMPLEMENTATION` findings to a repair worker with the unchanged guidance, `PLAN` findings back to the senior guide for one revision — under the repair caps, senior-touch limit, and resume-or-fresh rules of `references/verification-policy.md` ("Review and repair").
 
 For a real merge conflict, preserve both sides and render `templates/conflict-resolver-prompt.md`. A general merger agent never reinterprets a clean integration.
 

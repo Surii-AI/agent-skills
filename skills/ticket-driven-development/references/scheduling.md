@@ -32,16 +32,17 @@ Before starting a wave:
 3. Prepare one bounded brief and report path per worker.
 4. Ensure all child workspaces start from the same wave base.
 5. Record worker IDs and workspace/branch metadata before relying on their output.
+6. For parallel waves, provision child workspaces (worktree create plus dependency install via the discovered install command, e.g. `pnpm install --frozen-lockfile --prefer-offline` with a warm store) in the background concurrent with guide dispatch: guides are read-only against the integration worktree and never wait on a child install, and an implementer launches when both its `PLAN_READY` and its provisioned workspace exist. Direct-dispatch (unpaired) tickets provision the same way at wave start.
 
 Dispatch the critical path first: start the longest or highest-risk ready ticket before its siblings, so its review overlaps their implementation and its dependents unblock earliest.
 
-Budget the isolation cost honestly: in dependency-heavy monorepos (gitignored `node_modules`, virtualenvs, build caches) every child worktree needs its own dependency install before it can build or test. With a warm package-manager store this is minutes per workspace, not seconds. When parallel worktrees are right but installs are costly, point each child install at the package manager's shared store — pnpm, cargo, uv, and poetry all reuse a global cache by default or with one setting — so children pay for cold files only. When installs remain expensive, prefer sequential waves in the single integration worktree (one install, reused) over parallel child worktrees — the no-concurrent-writers invariant is preserved either way, and critical-path time often wins sequential.
+Budget the isolation cost honestly: in dependency-heavy monorepos (gitignored `node_modules`, virtualenvs, build caches) every child worktree needs its own dependency install before it can build or test. With a warm package-manager store this is minutes per workspace, not seconds. When parallel worktrees are right but installs are costly, point each child install at the package manager's shared store — pnpm, cargo, uv, and poetry all reuse a global cache by default or with one setting — so children pay for cold files only. When installs remain expensive, prefer sequential waves in the single integration worktree (one install, reused) over parallel child worktrees — the no-concurrent-writers invariant is preserved either way, and critical-path time often wins sequential. For shared *services* (databases), apply the isolation ladder in `references/verification-policy.md` — a per-workspace namespace before a duplicate instance before suite seats — instead of duplicating containers by default.
 
 The controller owns scheduling and state. Workers must not spawn helpers, modify ticket files, edit run state, or integrate sibling work.
 
 ## Integrate results
 
-For every completed worker, batch the verification, packaging, and transition shell work into one invocation per result — controller round-trips between collection steps are a measured, avoidable cost:
+Batch collection applies to every completed worker (SKILL.md workflow step 9): run the verification, packaging, and transition shell work as one invocation per result:
 
 1. Confirm its report exists and the claimed commit or patch matches the assigned workspace.
 2. Confirm focused and component checks passed or classify the result as incomplete.

@@ -24,14 +24,14 @@ Oh My Pi is the preferred adapter. Its official documentation is at <https://omp
 For a local installation with enforced explicit-only discovery, run:
 
 ```bash
-python3 scripts/install_skill.py --target omp --scope user
+python3 <skill-dir>/scripts/install_skill.py --target omp --scope user
 ```
 
 The installer copies the portable source and adds OMP’s supported top-level `disable-model-invocation: true` field to the installed copy. Use `--scope project --project <repo>` for a repository-local installation. Codex, OpenCode, ZCode (`--target zcode`), and generic Agent Skills locations are available through the corresponding `--target` value.
 
 ### Preflight
 
-Verify that the skill was explicitly invoked. Open `/settings` and ensure **Tasks → Isolation Mode** is not `none` before requesting isolated tasks. Prefer branch merge strategy when the environment exposes that choice, because branch and commit metadata are easier to reconcile than anonymous patches. Keep active implementers at the skill’s default maximum of four — or the user-declared cap when the invocation states one — even if `task.maxConcurrency` is larger.
+Verify that the skill was explicitly invoked. Open `/settings` and ensure **Tasks → Isolation Mode** is not `none` before requesting isolated tasks. Prefer branch merge strategy when the environment exposes that choice, because branch and commit metadata are easier to reconcile than anonymous patches. Keep active implementers within the concurrency policy of `references/scheduling.md`, even if `task.maxConcurrency` is larger.
 
 Use the built-in `task` agent for implementation and `reviewer` for independent review. Do not require custom `.omp/agents` files in version 0.1; Agent Skills cannot install those definitions portably.
 
@@ -40,6 +40,8 @@ The guide role adds a hard preflight dependency: the `i-have-adhd` skill whose r
 ### Dispatch
 
 When two or more tickets are parallel-safe, use one batch call. Put only compact shared invariants in batch `context`; make each item’s `task` self-contained and point it to its ticket, report path, workspace expectations, specification excerpt, and dependency interface notes. Give every item a stable name such as `t02-passwordless-signin`.
+
+Render each brief with `scripts/render_brief.py` (template + context JSON); the renderer errors on missing placeholders, so the compact-brief boundary is enforced by the tool, not discipline.
 
 Set `isolated: true` for concurrent implementers and request branch integration **only when the parent/controller workspace is the integration worktree**, because OMP bases and reapplies isolated work against the parent checkout. If the active controller remains in the user checkout, create explicit child worktrees from the integration SHA and direct non-isolated workers to those absolute paths instead. Never let native isolation apply a ticket directly to the user checkout merely for convenience. Guides are read-only against the integration worktree: batch a wave's guides concurrently with each other without isolation.
 

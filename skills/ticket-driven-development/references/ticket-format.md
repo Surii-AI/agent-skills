@@ -58,7 +58,7 @@ python3 scripts/index_tickets.py .scratch/<feature>/issues \
   --output <run-dir>/ticket-index.json
 ```
 
-The command exits with status `2` for missing required fields, duplicate IDs, unresolved blocker declarations, missing blockers, dependency cycles, or a directory containing no ticket files at all — an empty or mistyped ticket directory is an input error, never an empty run, and a layout that nests tickets in subdirectories is reported with their paths so the correct directory can be passed. Do not begin implementation when `valid` is false.
+The command exits with status `2` for missing required fields, duplicate IDs, unresolved blocker declarations, missing blockers, dependency cycles, or a directory containing no ticket files at all; a layout that nests tickets in subdirectories is reported with their paths so the user can decide the correct directory. `valid: false` is a hard stop: report the errors and the named directory, and let the user correct the invocation — never locate a different ticket directory and continue.
 
 `ready_frontier` reflects source statuses only at initial indexing. During a run, compute readiness from controller-owned `state.json`: a ticket is ready when it is not complete and every blocker is `verified`, `integrated` with its required checkpoint passed, or explicitly `skipped` by an approved ruling.
 
@@ -73,6 +73,7 @@ Include the entire current ticket. Add only:
 | Other tickets | Include only a ticket whose public contract directly binds the current work. |
 | Repository instructions | Include every instruction file scoped to the paths the worker may touch. |
 | Code context | Let the worker inspect relevant code from its workspace; provide a code map only when discovery would be unusually expensive. |
+| Code location | When preflight found a code-location tool, include the repository's locator rule so the worker queries it before crawling. |
 | Prior conversation | Do not pass it. Persist durable decisions as rulings, ADRs, or run context. |
 
 Tickets often cite specification artifacts inline — "§22", "ADR-9", "P12", a table row — without naming the document they belong to. Resolve those citations to concrete file paths (plus section anchors when the file is large) before dispatch: a worker that receives "§22" without knowing which document holds section 22 cannot verify its own contract and will guess. When a citation cannot be resolved to a file in the repository, treat it as missing context for the controller to clarify, not something for the worker to invent.

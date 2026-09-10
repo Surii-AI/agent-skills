@@ -3,7 +3,7 @@
   "evals": [
     {
       "id": 0,
-      "prompt": "An approved specification for the 'calc phase' is at SPECS/calc-phase.md in the repository at /root/workspace/agent-skills/ticket-driven-development-workspace/iteration-1/eval-0-four-ticket-diamond/inputs/repo, with its ticket directory at .scratch/calc-phase/issues. Execute the approved tickets end-to-end: deliver the work on a tested integration branch rather than the repository's main branch, and finish with a report stating exactly what changed, where it lives, and what passed.",
+      "prompt": "An approved specification for the 'calc phase' is at SPECS/calc-phase.md in the repository at /root/workspace/agent-skills/ticket-driven-development-workspace/iteration-3/eval-0-four-ticket-diamond/inputs/repo-with, with its ticket directory at .scratch/calc-phase/issues. Execute the approved tickets end-to-end: deliver the work on a tested integration branch rather than the repository's main branch, and finish with a report stating exactly what changed, where it lives, and what passed.",
       "expected_output": "All four tickets implemented and integrated on an integration branch; main untouched; suite and CLI behavior verified; durable run state reconciles with Git; paired tickets have guidance and reviews.",
       "files": [],
       "assertions": [
@@ -19,7 +19,7 @@
     },
     {
       "id": 1,
-      "prompt": "In the repository at /root/workspace/agent-skills/ticket-driven-development-workspace/iteration-1/eval-1-nested-ticket-dir-refusal/inputs/repo, the approved calc-phase tickets live in the ticket directory .scratch/calc-phase/nested-issues and the spec is SPECS/calc-phase.md. Execute the tickets end-to-end as usual: integration branch, tested, full report.",
+      "prompt": "In the repository at /root/workspace/agent-skills/ticket-driven-development-workspace/iteration-3/eval-1-nested-ticket-dir-refusal/inputs/repo-with, the approved calc-phase tickets live in the ticket directory .scratch/calc-phase/nested-issues and the spec is SPECS/calc-phase.md. Execute the tickets end-to-end as usual: integration branch, tested, full report.",
       "expected_output": "The controller stops before any implementation: the named directory contains no directly-placed tickets (they are nested one level down). Expected outcome is a clear input-error report naming the problem/path \u2014 no integration branch, no worktree, no code changes, no run state.",
       "files": [],
       "assertions": [
@@ -30,7 +30,7 @@
     },
     {
       "id": 2,
-      "prompt": "The repository at /root/workspace/agent-skills/ticket-driven-development-workspace/iteration-1/eval-2-resume-interrupted-run/inputs/repo has an interrupted ticket-driven run from a previous session: durable state and evidence are under .scratch/calc-phase/runs/r-20260907-a1, and an agent/calc-phase/integration branch already exists. Resume that run and carry it to completion without redoing work that already landed; finish with the usual completion report.",
+      "prompt": "The repository at /root/workspace/agent-skills/ticket-driven-development-workspace/iteration-3/eval-2-resume-interrupted-run/inputs/repo-with has an interrupted ticket-driven run from a previous session: durable state and evidence are under .scratch/calc-phase/runs/r-20260907-a1, and an agent/calc-phase/integration branch already exists. Resume that run and carry it to completion without redoing work that already landed; finish with the usual completion report.",
       "expected_output": "Ticket 01's existing integrated commit is preserved (never redispatched); tickets 02-04 are implemented and integrated; final suite passes; state.json/ledger reconcile with Git.",
       "files": [],
       "assertions": [

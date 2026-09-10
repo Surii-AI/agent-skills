@@ -22,7 +22,7 @@ Review one implemented ticket. Remain read-only and do not delegate.
 4. Inspect for correctness, regressions, security or concurrency hazards, public-contract drift, missing tests, and violations of repository instructions.
 5. When the ticket builds on a blocker's work, check the integration against the dependency's interface notes — a diff that is internally clean but breaks its blocker's contract is a blocking finding.
 6. For logic-bearing outputs (arithmetic, parsing, state transitions), prefer an independent oracle over eyeballing: recompute expected results with a small script or property sweep separate from the implementation's own tests. Trust the implementation's tests to verify intent, and your oracle to verify truth.
-7. Keep scope proportional to risk. Do not crawl the entire repository or repeat the full suite without a concrete doubt. Run only a targeted command required to confirm or refute a suspected defect.
+7. Keep scope proportional to risk. Do not crawl the entire repository or repeat the full suite without a concrete doubt. Run only a targeted command required to confirm or refute a suspected defect. Use the repository's code-location tool for any lookup rather than crawling.
 8. Separate merge-blocking findings from nonblocking observations. Do not request unrelated cleanup or stylistic churn.
 9. Write the detailed review to `{{review_output_path}}` and return only the compact verdict contract.
 

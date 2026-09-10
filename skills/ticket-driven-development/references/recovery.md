@@ -22,6 +22,8 @@ The controller is the only writer of `state.json` and `ledger.md`. Workers recei
 
 Place the run directory in the main checkout's ignored path or outside the repository — never inside the integration worktree or a child workspace that teardown removes. Workspaces are disposable once integrated; the ledger, reports, and reviews are the audit record and must survive cleanup.
 
+A finished run's `repo-profile.json` can seed the next run's preflight (`scripts/repo_profile.py reuse`) when phases repeat in one repository; `state.json` remains the authority for resuming *this* run.
+
 Initialize state after the integration worktree exists:
 
 ```bash

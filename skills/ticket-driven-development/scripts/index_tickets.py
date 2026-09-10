@@ -240,7 +240,8 @@ def build_index(ticket_dir: Path) -> dict[str, Any]:
             shown = ", ".join(nested[:5]) + (" …" if len(nested) > 5 else "")
             hint = (
                 " — but *.md files exist in subdirectories: "
-                f"{shown}. Pass the directory that directly contains the tickets."
+                f"{shown}. Input error, not a repair: report it to the user, "
+                "who decides the correct ticket directory — do not select one yourself."
             )
         zero_ticket_errors.append(
             f"no ticket files (*.md) found in {ticket_dir.resolve()}{hint}"

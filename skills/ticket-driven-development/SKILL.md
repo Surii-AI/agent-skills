@@ -14,7 +14,7 @@ Act as the **controller**. Convert an approved directory of Markdown tickets int
 
 1. Work from one isolated integration branch; the user's primary branch and dirty checkout stay untouched.
 2. Treat tickets as a dependency graph, not a list. Dispatch only tickets whose blockers have passed the required checkpoint.
-3. Parallelize only confidently independent tickets. Never run concurrent writers in one checkout.
+3. Parallelize only confidently independent tickets. Concurrent writers get separate checkouts.
 4. Give each worker one ticket and file pointers, not the parent conversation or every ticket.
 5. Only the controller dispatches guide, implementation, review, or conflict-resolution workers — workers never recurse.
 6. Require durable report files and compact returns: full diffs and detailed reports stay in files, reaching the controller as pointers.
@@ -159,7 +159,7 @@ When no ticket is ready but incomplete tickets remain, diagnose an invalid state
 
 ### 11. Run the final gate
 
-Package the full original-base-to-integration-head diff. Run the configured full suite and the requirements-aware final branch review (`templates/final-review-prompt.md`) concurrently — both are read-only against the same final head. The full suite must pass at the final head; after a fix wave, rerun it only when the fix changed code.
+Package the full original-base-to-integration-head diff. Run the configured full suite and the requirements-aware final branch review (`templates/final-review-prompt.md`) concurrently — both are read-only against the same final head. The suite run in the controller is the gate's recorded evidence: the review works from recorded outcomes (reports, reviews, packaged diffs) rather than re-executing the suite, and after a fix wave the suite reruns only when the fix changed code.
 
 If changes are requested, perform one consolidated fix wave and one scoped re-review. Mark the run complete only when all intended tickets are integrated, required checks pass, and the final verdict is `PASS`.
 

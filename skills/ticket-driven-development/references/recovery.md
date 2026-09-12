@@ -20,9 +20,7 @@ conflicts/
 
 The controller is the only writer of `state.json` and `ledger.md`. Workers receive read-only pointers and write only their assigned report files inside the run directory.
 
-Place the run directory in the main checkout's ignored path or outside the repository — never inside the integration worktree or a child workspace that teardown removes. Workspaces are disposable once integrated; the ledger, reports, and reviews are the audit record and must survive cleanup.
-
-A finished run's `repo-profile.json` can seed the next run's preflight (`scripts/repo_profile.py reuse`) when phases repeat in one repository; `state.json` remains the authority for resuming *this* run.
+Place the run directory in the main checkout's ignored path or outside the repository — never inside the integration worktree or a child workspace that teardown removes. Workspaces are disposable once integrated; the ledger, reports, and reviews are the audit record and must survive cleanup. A finished run's `repo-profile.json` can seed the next run's preflight (`scripts/repo_profile.py reuse`); `state.json` remains the authority for resuming *this* run.
 
 Initialize state after the integration worktree exists:
 
@@ -46,8 +44,8 @@ Update a ticket at every durable boundary: dispatched, guided, implemented, revi
 Do not infer status from the conversation. On every resume:
 
 1. Read `state.json`, `ledger.md`, and `ticket-index.json`.
-2. Run `scripts/reconcile_run.py --state <run-dir>/state.json` without `--apply` (`--quiet` prints only the tickets carrying recommendations and any applied changes, which at scale is the inspection list).
-3. Inspect every warning, dirty worktree, missing commit, and branch mismatch.
+2. Run `scripts/reconcile_run.py --state <run-dir>/state.json` without `--apply` from the repository recorded in `state.json`; if the checkout moved or the run was cloned, repair stale absolute paths (`repo_root`, worktree, branch paths) first, since reconcile resolves commits against them (`--quiet` prints only the tickets carrying recommendations and any applied changes, which at scale is the inspection list).
+3. Inspect every warning, dirty worktree, missing commit, and branch mismatch: a missing commit that exists in this repository's history means reconcile read stale paths, so repair the recorded paths and rerun before trusting the report.
 4. If the report is correct, rerun with `--apply` to make only safe repairs.
 5. Recreate the integration worktree if teardown or interruption removed it: the branch survived, so attach a worktree to it rather than recreating history —
 

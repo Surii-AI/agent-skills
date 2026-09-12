@@ -36,6 +36,8 @@ TARGETS = {
         "project": Path(".agents/skills"),
     },
 }
+AGENT_TARGETS = {"omp": {"user": Path("~/.omp/agent/agents"), "project": Path(".omp/agents")}}
+
 
 
 def inject_omp_explicit_only(skill_file: Path) -> None:
@@ -71,6 +73,23 @@ def install(source: Path, destination: Path, target: str, force: bool) -> Path:
     if target == "omp":
         inject_omp_explicit_only(destination / "SKILL.md")
     return destination
+def install_agents(agents_source: Path, agents_dir: Path, force: bool) -> list[tuple[str, str]]:
+    agents_dir.mkdir(parents=True, exist_ok=True)
+    outcomes: list[tuple[str, str]] = []
+    for source_file in sorted(agents_source.glob("*.md")):
+        dest = agents_dir / source_file.name
+        if not dest.exists():
+            shutil.copyfile(source_file, dest)
+            outcomes.append((source_file.name, "installed"))
+        elif dest.read_bytes() == source_file.read_bytes():
+            outcomes.append((source_file.name, "identical"))
+        elif force:
+            shutil.copyfile(source_file, dest)
+            outcomes.append((source_file.name, "installed"))
+        else:
+            outcomes.append((source_file.name, "skipped-existing"))
+    return outcomes
+
 
 
 def main() -> int:
@@ -80,6 +99,8 @@ def main() -> int:
     parser.add_argument("--project", type=Path, default=Path.cwd(), help="Project root for project-scope installs")
     parser.add_argument("--destination", type=Path, help="Override the standard target directory")
     parser.add_argument("--force", action="store_true")
+    parser.add_argument("--no-agents", action="store_true", help="Skip omp agent definition installation")
+
     args = parser.parse_args()
 
     source = Path(__file__).resolve().parents[1]
@@ -97,6 +118,19 @@ def main() -> int:
     print(installed)
     if args.target == "omp":
         print("OMP explicit-only frontmatter enabled. Start a new session or run /reload-plugins.")
+    agent_scopes = AGENT_TARGETS.get(args.target, {})
+    if args.scope in agent_scopes:
+        if args.no_agents:
+            return 0
+        agent_base = agent_scopes[args.scope]
+        agent_dir = agent_base.expanduser() if args.scope == "user" else args.project.resolve() / agent_base
+        for name, outcome in install_agents(installed / "agents", agent_dir, args.force):
+            if outcome == "skipped-existing":
+                print(f"agents: {name} skipped (exists and differs; rerun with --force)")
+            else:
+                print(f"agents: {name} {outcome}")
+    elif args.target == "omp":
+        print("agents: project-scope omp agent directory unverified; use --scope user to install them")
     return 0
 
 

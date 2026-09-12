@@ -28,12 +28,13 @@ python3 <skill-dir>/scripts/install_skill.py --target omp --scope user
 ```
 
 The installer copies the portable source and adds OMP’s supported top-level `disable-model-invocation: true` field to the installed copy. Use `--scope project --project <repo>` for a repository-local installation. Codex, OpenCode, ZCode (`--target zcode`), and generic Agent Skills locations are available through the corresponding `--target` value.
+For `--target omp --scope user`, the installer also copies the three agent definitions — `tdd-senior`, `tdd-junior`, `tdd-reviewer` — into `~/.omp/agent/agents/` (`--scope project` targets the repository's `.omp/agents/`). Differing files already present are skipped unless `--force` is passed; `--no-agents` skips agent installation entirely. The `tdd-senior` definition autoloads the `i-have-adhd` skill via OMP's `autoloadSkills` frontmatter; the rendered guide prompt still passes the resolved `{{adhd_skill_path}}` as the portable fallback.
 
 ### Preflight
 
 Verify that the skill was explicitly invoked. Open `/settings` and ensure **Tasks → Isolation Mode** is not `none` before requesting isolated tasks. Prefer branch merge strategy when the environment exposes that choice, because branch and commit metadata are easier to reconcile than anonymous patches. Keep active implementers within the concurrency policy of `references/scheduling.md`, even if `task.maxConcurrency` is larger.
 
-Use the built-in `task` agent for implementation and `reviewer` for independent review. Do not require custom `.omp/agents` files in version 0.1; Agent Skills cannot install those definitions portably.
+Use the built-in `task` agent for implementation and `reviewer` for independent review: they remain the portable baseline, and a run never depends on custom agents. When the installed `tdd-*` definitions are present (`~/.omp/agent/agents/tdd-junior.md`, `tdd-senior.md`, `tdd-reviewer.md` exist), prefer them per the model-tier table below — they pin per-role model tiers and tool restrictions the `task` tool cannot express. If they are absent, fall back to the built-ins; this is never a run-stopper.
 
 The guide role adds a hard preflight dependency: the `i-have-adhd` skill whose rules shape every guidance document. Resolve its file before the first dispatch — in OMP, `skill://i-have-adhd/SKILL.md`, typically installed at `~/.agents/skills/i-have-adhd/SKILL.md` in user scope or the repository-local equivalent — verify it is readable, and pass the resolved absolute path as `{{adhd_skill_path}}` in every guide dispatch. If it cannot be resolved, stop before dispatching anything and report the missing dependency; do not silently substitute an unshaped guide.
 
@@ -112,6 +113,8 @@ Paired tickets split judgment from execution, so role selection is part of dispa
 | Plan-aware reviewer | Strongest available review agent | Standard reviewer assignment plus the guidance pointer. |
 
 When the environment exposes per-task model selection, map the tiers explicitly — for example `opus`-class for the senior roles and `haiku`-class for the junior, or GLM-5.3 at `:high` thinking for the senior roles and GLM-5.3-flash at `:medium` for the junior (medium, not low: the junior must still notice when the code proves a plan step wrong). When it does not (OMP's task tool today exposes agent types, not per-task models), run both senior and junior roles on the default `task` agent and use `reviewer` for the plan-aware review: the pair still earns its keep through context isolation, because the guide's investigation never enters the junior's context window and the plan is re-derived from repository evidence instead of conversation memory.
+
+On OMP, per-dispatch models are expressed through the installed agent definitions rather than dispatch flags: `tdd-senior` and `tdd-reviewer` pin GLM-5.3 `:high` with read-only tool sets, and `tdd-junior` pins GLM-5.3-flash `:medium`. Without them, default to `task` + `reviewer` as above.
 
 ### Results and repair
 

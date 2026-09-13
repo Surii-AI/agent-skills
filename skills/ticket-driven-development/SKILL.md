@@ -35,6 +35,7 @@ Act as the **controller**. Convert an approved directory of Markdown tickets int
 | Classify risk, pairing gate, review depth, service preflight, repair | `references/verification-policy.md` |
 | Start, resume, reconcile, or clean a run | `references/recovery.md` |
 | Map orchestration onto the active environment | `references/adapters.md` |
+Bulk-reading references at preflight defeats this table: open one only when its situation row fires.
 
 ## Workflow
 
@@ -114,7 +115,7 @@ Record the chosen wave base. Start every parallel child from that exact integrat
 
 ### 8. Dispatch bounded guides and implementers
 
-Paired tickets dispatch a read-only senior guide first. Render `templates/guide-prompt.md` with the `i-have-adhd` skill path resolved at preflight: the guide reads the ticket and the code at the expected base, writes a bounded, repo-grounded plan to `<run-dir>/guidance/<ticket-id>.md`, and returns `PLAN_READY`, `NEEDS_CONTEXT`, `NEEDS_SPLIT`, or `BLOCKED`. Guides are read-only — batch sibling guides concurrently. A guide stop is handled exactly like an implementer stop, at guide prices: the gate exists to catch malformed tickets before a junior burns a workspace on them. On `PLAN_READY`, dispatch the junior implementer with the guidance pointer; when the junior's actual start SHA differs from the guidance base, run `scripts/guidance_drift.py` and regenerate only on material drift — `--patch-base` re-pins a plan that stayed valid.
+Paired tickets dispatch a read-only senior guide first. Render `templates/guide-prompt.md` with the `i-have-adhd` skill path resolved at preflight: the guide reads the ticket and the code at the expected base, writes a bounded, repo-grounded plan to `<run-dir>/guidance/<ticket-id>.md`, and returns `PLAN_READY`, `NEEDS_CONTEXT`, `NEEDS_SPLIT`, or `BLOCKED`. Guides are read-only — batch sibling guides concurrently. The guidance is a reading-grounded plan, not a proof: a guide may execute at most one load-bearing snippet — the step whose failure would void the whole plan — in a scratch directory, never the full plan. A guide stop is handled exactly like an implementer stop, at guide prices: the gate exists to catch malformed tickets before a junior burns a workspace on them. On `PLAN_READY`, dispatch the junior implementer with the guidance pointer; when the junior's actual start SHA differs from the guidance base, run `scripts/guidance_drift.py` and regenerate only on material drift — `--patch-base` re-pins a plan that stayed valid.
 
 Render `templates/implementer-prompt.md` for each ticket with `scripts/render_brief.py` (template plus a context file): the renderer errors on missing placeholders and warns on unused context keys, so both halves of the brief boundary — every assignment field present, nothing extra riding along — are enforced by the tool, not discipline. The judgment calls of what a brief carries (specification excerpts over whole files, dependency interface notes over transcripts, the ~20k-token initial-context target with 40k as the warning line, and citation resolution) live in the worker-brief boundary rules of `references/ticket-format.md`.
 
@@ -122,7 +123,7 @@ Use the adapter in `references/adapters.md`, including its role-to-model-tier ma
 
 A stalled worker announces itself through silence, not failure. Its heartbeat is the observable evidence of progress: file changes in its workspace, a growing or freshly touched report file. The **stall window** — twice the longest checkpoint budget the assignment declares, fifteen minutes minimum — is the silence budget after which the worker counts as wedged: ping it once, and if another stall window passes with no change, cancel it, preserve the partial workspace, and either redispatch once from a fresh worker or complete the step yourself in the controller. A worker still running past its guidance's declared time-box plus half is equally stalled even with a heartbeat — slow grinding is a stall you are watching happen. Derive the window from declared budgets, never from median completed durations: when every worker is slow, a median window stretches to match and never fires. Cancellation also stops the processes the worker spawned — a test runner that outlives its worker keeps consuming the resources the next worker needs. Record the intervention, its window, and its reason in the ledger; a silently absorbed stall is a lost audit event. A window the user declared at invocation overrides these defaults.
 
-Requirements discovered while workers are running reach them through one bounded channel: collection. Verify the returned report, and when evidence is missing, run that one scoped check yourself in the worker's workspace or dispatch a single follow-up naming the exact check and its timeout budget. A broadcast of new requirements into running workers multiplies across every seat — four juniors told to run the full suite before finishing become four suites contending for the same infrastructure, each stalling the others. The full configured suite runs where its cost is paid once: in the controller, at the final gate and risk-tiered milestones.
+Requirements discovered while workers are running reach them through one bounded channel: collection. Verify the returned report, and when evidence is missing, run that one scoped check yourself in the worker's workspace or dispatch a single follow-up naming the exact check and its timeout budget. A broadcast of new requirements into running workers multiplies across every seat — four juniors told to run the full suite before finishing become four suites contending for the same infrastructure, each stalling the others.
 
 ### 9. Verify and integrate each result
 
@@ -142,7 +143,7 @@ python3 <skill-dir>/scripts/package_diff.py \
 ```
 
 4. Apply the risk policy in `references/verification-policy.md`. Render `templates/reviewer-prompt.md` when review is required — on paired tickets the plan-aware reviewer also receives the guidance and labels each blocking finding `IMPLEMENTATION` or `PLAN`, which routes repair to the junior or back to the senior guide.
-5. If approved, integrate with deterministic Git. Confirm the ticket head is an ancestor of the integration head, then check elision before scheduling any smoke command: when the worker-verified and integration tree hashes are equal (routine after a clean cherry-pick onto an unmoved base), record both hashes as the checkpoint evidence and stop there. When the trees differ, run the smoke scoped to the ticket — its focused suite plus the components its diff touches, selected with the repository's affected-test selector recorded at preflight (per the "Affected-check selection" section of `references/verification-policy.md`). The full configured suite is a final-gate and milestone check, never the per-ticket smoke.
+5. If approved, integrate with deterministic Git. Confirm the ticket head is an ancestor of the integration head, then check elision before scheduling any smoke command: when the worker-verified and integration tree hashes are equal (routine after a clean cherry-pick onto an unmoved base), record both hashes as the checkpoint evidence and stop there. When the trees differ, run the smoke scoped to the ticket — its focused suite plus the components its diff touches, selected with the repository's affected-test selector recorded at preflight (per the "Affected-check selection" section of `references/verification-policy.md`).
 6. Persist every transition with `scripts/run_state.py transition --quiet`, recording measurements from the worker result at collection time — duration and context size are only reliably observable now, and backfilled numbers are guesses.
 
 A result with no repository change ends `verified`: confirm its artifacts landed at their assigned run-directory paths, with the report as evidence. A result with a commit ends `integrated`, per invariant 10.
@@ -159,7 +160,7 @@ When no ticket is ready but incomplete tickets remain, diagnose an invalid state
 
 ### 11. Run the final gate
 
-Package the full original-base-to-integration-head diff. Run the configured full suite and the requirements-aware final branch review (`templates/final-review-prompt.md`) concurrently — both are read-only against the same final head. The suite run in the controller is the gate's recorded evidence: the review works from recorded outcomes (reports, reviews, packaged diffs) rather than re-executing the suite, and after a fix wave the suite reruns only when the fix changed code.
+Package the full original-base-to-integration-head diff. Run the configured full suite and the requirements-aware final branch review (`templates/final-review-prompt.md`) concurrently — both are read-only against the same final head. Give the review the controller's recorded evidence as input pointers — per-ticket suite outcomes, reviewer oracle results, and packaged diffs — and it runs a command only for a criterion no recorded evidence covers. After a fix wave the suite reruns only when the fix changed code.
 
 If changes are requested, perform one consolidated fix wave and one scoped re-review. Mark the run complete only when all intended tickets are integrated, required checks pass, and the final verdict is `PASS`.
 
@@ -183,4 +184,3 @@ A successful run produces:
 | Ticket reports and reviews | Provide acceptance evidence through file pointers. |
 | Final diff package | Covers the complete base-to-head change. |
 | Verification record | Lists exact commands and truthful outcomes. |
-| Final response | States what changed, where it lives, what passed, and what remains. |

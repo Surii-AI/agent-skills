@@ -32,7 +32,7 @@ class InstallAgentsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             source = make_agents_source(root)
-            outcomes = install_skill.install_agents(source, root / "dest", force=False)
+            outcomes = install_skill.install_agents(source, root / "dest")
             self.assertEqual(outcomes, [(name, "installed") for name in AGENT_NAMES])
             for name in AGENT_NAMES:
                 self.assertEqual(
@@ -44,32 +44,22 @@ class InstallAgentsTests(unittest.TestCase):
             root = Path(temp)
             source = make_agents_source(root)
             dest = root / "dest"
-            install_skill.install_agents(source, dest, force=False)
+            install_skill.install_agents(source, dest)
             before = (dest / AGENT_NAMES[0]).stat().st_mtime_ns
-            outcomes = install_skill.install_agents(source, dest, force=False)
+            outcomes = install_skill.install_agents(source, dest)
             self.assertEqual(outcomes, [(name, "identical") for name in AGENT_NAMES])
             self.assertEqual((dest / AGENT_NAMES[0]).stat().st_mtime_ns, before)
 
-    def test_differing_existing_file_skipped_without_force(self) -> None:
+    def test_differing_existing_file_updated_without_force(self) -> None:
+        """Agent definitions are skill payload: an update syncs them, no --force needed."""
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             source = make_agents_source(root)
             dest = root / "dest"
             dest.mkdir()
-            (dest / AGENT_NAMES[0]).write_text("user customized\n", encoding="utf-8")
-            outcomes = install_skill.install_agents(source, dest, force=False)
-            self.assertEqual(outcomes[0], (AGENT_NAMES[0], "skipped-existing"))
-            self.assertEqual((dest / AGENT_NAMES[0]).read_bytes(), b"user customized\n")
-
-    def test_differing_existing_file_overwritten_with_force(self) -> None:
-        with tempfile.TemporaryDirectory() as temp:
-            root = Path(temp)
-            source = make_agents_source(root)
-            dest = root / "dest"
-            dest.mkdir()
-            (dest / AGENT_NAMES[0]).write_text("user customized\n", encoding="utf-8")
-            outcomes = install_skill.install_agents(source, dest, force=True)
-            self.assertEqual(outcomes[0], (AGENT_NAMES[0], "installed"))
+            (dest / AGENT_NAMES[0]).write_text("stale previous version\n", encoding="utf-8")
+            outcomes = install_skill.install_agents(source, dest)
+            self.assertEqual(outcomes[0], (AGENT_NAMES[0], "updated"))
             self.assertEqual((dest / AGENT_NAMES[0]).read_bytes(), (source / AGENT_NAMES[0]).read_bytes())
 
 
@@ -122,6 +112,17 @@ class InstallerEndToEndTests(unittest.TestCase):
                     expected=0,
                 )
             self.assertFalse((home / ".omp" / "agent" / "agents").exists())
+
+    def test_update_refreshes_stale_agents_without_force(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            home = Path(temp)
+            destination = home / "skill"
+            self.run_installer(home, "--destination", str(destination))
+            agents_dir = home / ".omp" / "agent" / "agents"
+            (agents_dir / AGENT_NAMES[0]).write_text("stale previous version\n", encoding="utf-8")
+            self.run_installer(home, "--destination", str(destination), "--force")
+            source = destination / "agents" / AGENT_NAMES[0]
+            self.assertEqual((agents_dir / AGENT_NAMES[0]).read_bytes(), source.read_bytes())
 
 
 if __name__ == "__main__":

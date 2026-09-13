@@ -73,21 +73,26 @@ def install(source: Path, destination: Path, target: str, force: bool) -> Path:
     if target == "omp":
         inject_omp_explicit_only(destination / "SKILL.md")
     return destination
-def install_agents(agents_source: Path, agents_dir: Path, force: bool) -> list[tuple[str, str]]:
+def install_agents(agents_source: Path, agents_dir: Path) -> list[tuple[str, str]]:
+    """Install agent definitions as skill-owned payload.
+
+    Agent definitions are version-coupled to the skill (its templates, scripts,
+    and guidance flow reference them), so an install or update always syncs
+    them; leaving a stale copy behind breaks mixed-version installs. Use
+    --no-agents to opt out entirely.
+    """
     agents_dir.mkdir(parents=True, exist_ok=True)
     outcomes: list[tuple[str, str]] = []
     for source_file in sorted(agents_source.glob("*.md")):
         dest = agents_dir / source_file.name
-        if not dest.exists():
-            shutil.copyfile(source_file, dest)
-            outcomes.append((source_file.name, "installed"))
-        elif dest.read_bytes() == source_file.read_bytes():
+        if dest.exists() and dest.read_bytes() == source_file.read_bytes():
             outcomes.append((source_file.name, "identical"))
-        elif force:
+        elif dest.exists():
+            shutil.copyfile(source_file, dest)
+            outcomes.append((source_file.name, "updated"))
+        else:
             shutil.copyfile(source_file, dest)
             outcomes.append((source_file.name, "installed"))
-        else:
-            outcomes.append((source_file.name, "skipped-existing"))
     return outcomes
 
 
@@ -114,21 +119,14 @@ def main() -> int:
     except (OSError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
-
-    print(installed)
-    if args.target == "omp":
-        print("OMP explicit-only frontmatter enabled. Start a new session or run /reload-plugins.")
     agent_scopes = AGENT_TARGETS.get(args.target, {})
     if args.scope in agent_scopes:
         if args.no_agents:
             return 0
         agent_base = agent_scopes[args.scope]
         agent_dir = agent_base.expanduser() if args.scope == "user" else args.project.resolve() / agent_base
-        for name, outcome in install_agents(installed / "agents", agent_dir, args.force):
-            if outcome == "skipped-existing":
-                print(f"agents: {name} skipped (exists and differs; rerun with --force)")
-            else:
-                print(f"agents: {name} {outcome}")
+        for name, outcome in install_agents(installed / "agents", agent_dir):
+            print(f"agents: {name} {outcome}")
     elif args.target == "omp":
         print("agents: project-scope omp agent directory unverified; use --scope user to install them")
     return 0

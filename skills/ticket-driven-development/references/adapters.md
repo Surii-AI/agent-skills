@@ -28,7 +28,7 @@ python3 <skill-dir>/scripts/install_skill.py --target omp --scope user
 ```
 
 The installer copies the portable source and adds OMP’s supported top-level `disable-model-invocation: true` field to the installed copy. Use `--scope project --project <repo>` for a repository-local installation. Codex, OpenCode, ZCode (`--target zcode`), and generic Agent Skills locations are available through the corresponding `--target` value.
-For `--target omp --scope user`, the installer also copies the three agent definitions — `tdd-senior`, `tdd-junior`, `tdd-reviewer` — into `~/.omp/agent/agents/` (`--scope project` targets the repository's `.omp/agents/`). Differing files already present are skipped unless `--force` is passed; `--no-agents` skips agent installation entirely. The `tdd-senior` definition autoloads the `i-have-adhd` skill via OMP's `autoloadSkills` frontmatter; the rendered guide prompt still passes the resolved `{{adhd_skill_path}}` as the portable fallback.
+For `--target omp --scope user`, the installer also copies the three agent definitions — `tdd-senior`, `tdd-junior`, `tdd-reviewer` — into `~/.omp/agent/agents/` (`--scope project` targets the repository's `.omp/agents/`). Differing files already present are skipped unless `--force` is passed; `--no-agents` skips agent installation entirely. The `tdd-senior` definition autoloads the `i-have-adhd` skill via OMP's `autoloadSkills` frontmatter; the rendered guide prompt still passes the resolved `{{adhd_skill_path}}` as the portable fallback. The definition's body itself also instructs the guide to load the skill, so the dependency travels with the agent on platforms that have neither autoload nor a skills allowlist.
 
 ### Preflight
 
@@ -174,13 +174,15 @@ tools: [Read, Write, Edit, Bash, Grep, Glob]
 
 Install the three files with `python3 <skill-dir>/scripts/install_skill.py --target zcode --scope user --zcode-agents`; add `--zcode-model tdd-junior=<id>` (repeatable) to pin per-role models. The `model:` value is the machine-specific identifier the client's model picker uses — copy it from there or from `~/.zcode/v2/agents-state.json`; omitting `model` inherits the session default, which keeps the tool restriction and system prompt but not the tier split. Target shape:
 
-| Profile | Model | Thinking | Tools |
-|---|---|---|---|
-| `tdd-senior` | GLM-5.3 | high | Read, Grep, Glob, Bash, WebSearch |
-| `tdd-junior` | GLM-5.3-Flash | high | Read, Write, Edit, Bash, Grep, Glob |
-| `tdd-reviewer` | GLM-5.3 | high | Read, Grep, Glob, Bash |
+| Profile | Model | Thinking | Tools | Skills |
+|---|---|---|---|---|
+| `tdd-senior` | GLM-5.3 | high | Read, Grep, Glob, Bash, WebSearch | i-have-adhd |
+| `tdd-junior` | GLM-5.3-Flash | high | Read, Write, Edit, Bash, Grep, Glob | — |
+| `tdd-reviewer` | GLM-5.3 | high | Read, Grep, Glob, Bash | — |
 
-ZCode's reasoning variants are low, high, and max — there is no medium, so Oh My Pi's junior `flash:medium` maps to Flash at high, never low: the junior must still notice when the code proves a plan step wrong. Omitting the subagent and skill tools from each profile makes the no-recursion invariant structural. Profiles have no skill autoload: the guide still receives the resolved `{{adhd_skill_path}}` and reads the file itself, which is already the portable path.
+ZCode's reasoning variants are low, high, and max — there is no medium, so Oh My Pi's junior `flash:medium` maps to Flash at high, never low: the junior must still notice when the code proves a plan step wrong. Omitting the subagent and skill tools from each profile makes the no-recursion invariant structural.
+
+A profile's `skills:` frontmatter is the ZCode counterpart of Oh My Pi's `autoloadSkills`, as a least-privilege allowlist: ZCode auto-provisions the Skill tool for that profile and filters its skill discovery to exactly the named skills — nothing else is visible. Give `tdd-senior` `skills: [i-have-adhd]` so the guide can load the reader-shaping rules itself; the rendered guide assignment still passes the resolved `{{adhd_skill_path}}` and the guide reads the file directly when the profile is absent, which is the portable path.
 
 ## Generic adapter
 

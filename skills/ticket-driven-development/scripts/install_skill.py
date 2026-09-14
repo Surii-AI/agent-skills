@@ -136,11 +136,27 @@ def parse_agent_markdown(text: str) -> dict[str, object]:
         end = next(i for i in range(1, len(lines)) if lines[i].strip() == "---")
     except StopIteration:
         raise RuntimeError("agent file has no frontmatter block") from None
-    frontmatter: dict[str, str] = {}
+    frontmatter: dict[str, object] = {}
+    pending: str | None = None
     for line in lines[1:end]:
+        stripped = line.strip()
+        if not stripped:
+            pending = None
+            continue
+        if stripped.startswith("- ") and pending is not None:
+            items = frontmatter[pending]
+            if isinstance(items, list):
+                items.append(stripped[2:].strip())
+            continue
+        pending = None
         key, sep, value = line.partition(":")
         if sep and not key.startswith((" ", "\t", "-")):
-            frontmatter[key.strip()] = value.strip()
+            name = key.strip()
+            if value.strip() == "":
+                frontmatter[name] = []
+                pending = name
+            else:
+                frontmatter[name] = value.strip()
     return {"frontmatter": frontmatter, "body": "\n".join(lines[end + 1 :]).strip()}
 
 
@@ -149,9 +165,11 @@ def render_zcode_agent(agent: dict[str, object], model: str | None) -> str:
 
     ZCode profiles are Markdown files (user ~/.zcode/agents, workspace
     <repo>/.zcode/agents) with required name and description frontmatter,
-    optional model/thoughtLevel/tools, and the body as the system prompt.
-    Model ids are machine-specific, so the omp model pin carries over only as
-    thoughtLevel; pin models explicitly with --zcode-model name=id.
+    optional model/thoughtLevel/tools/skills, and the body as the system
+    prompt. Model ids are machine-specific, so the omp model pin carries over
+    only as thoughtLevel; pin models explicitly with --zcode-model name=id.
+    omp's autoloadSkills carries over as the ZCode skills allowlist: the
+    profile gets the Skill tool and can load only the listed skills.
     """
     frontmatter = agent["frontmatter"]
     assert isinstance(frontmatter, dict)
@@ -175,6 +193,9 @@ def render_zcode_agent(agent: dict[str, object], model: str | None) -> str:
     fields.append(f"thoughtLevel: {level}")
     if tools:
         fields.append("tools: [" + ", ".join(tools) + "]")
+    skills = frontmatter.get("autoloadSkills")
+    if isinstance(skills, list) and skills:
+        fields.append("skills: [" + ", ".join(str(item) for item in skills) + "]")
     body = agent["body"]
     assert isinstance(body, str)
     return "---\n" + "\n".join(fields) + "\n---\n\n" + body + "\n"

@@ -64,6 +64,42 @@ class InstallAgentsTests(unittest.TestCase):
             self.assertEqual((dest / AGENT_NAMES[0]).read_bytes(), (source / AGENT_NAMES[0]).read_bytes())
 
 
+class AgentMarkdownTests(unittest.TestCase):
+    def test_parse_frontmatter_with_list_block(self) -> None:
+        text = (
+            "---\n"
+            "name: tdd-senior\n"
+            "model: zai/glm-5.3:high\n"
+            "autoloadSkills:\n"
+            "  - i-have-adhd\n"
+            "---\n"
+            "body line\n"
+        )
+        agent = install_skill.parse_agent_markdown(text)
+        self.assertEqual(agent["frontmatter"]["name"], "tdd-senior")
+        self.assertEqual(agent["frontmatter"]["autoloadSkills"], ["i-have-adhd"])
+        self.assertEqual(agent["body"], "body line")
+
+    def test_render_maps_autoload_skills_to_allowlist(self) -> None:
+        text = (
+            "---\n"
+            "name: tdd-senior\n"
+            "description: d\n"
+            "model: zai/glm-5.3:high\n"
+            "tools: read,grep\n"
+            "read-summarize: false\n"
+            "autoloadSkills:\n"
+            "  - i-have-adhd\n"
+            "---\n"
+            "body\n"
+        )
+        rendered = install_skill.render_zcode_agent(install_skill.parse_agent_markdown(text), None)
+        self.assertIn("skills: [i-have-adhd]", rendered)
+        self.assertIn("thoughtLevel: high", rendered)
+        self.assertNotIn("read-summarize", rendered)
+        self.assertNotIn("autoloadSkills", rendered)
+
+
 class InstallerEndToEndTests(unittest.TestCase):
     def run_installer(
         self, home: Path, *extra: str, expected: int = 0
@@ -186,6 +222,9 @@ class InstallerEndToEndTests(unittest.TestCase):
             self.assertNotIn("model:", senior)
             self.assertIn("thoughtLevel: high", senior)
             self.assertIn("tools: [Read, Grep, Glob, Bash, WebSearch]", senior)
+            # omp autoloadSkills carries over as the ZCode skills allowlist.
+            self.assertIn("skills: [i-have-adhd]", senior)
+            self.assertNotIn("skills:", text)
             self.assertIn("agents: tdd-junior.md installed", result.stdout)
             # Re-running is idempotent.
             with mock.patch.dict(os.environ, HOME=str(home), OMP_PROFILE="", PI_PROFILE=""):

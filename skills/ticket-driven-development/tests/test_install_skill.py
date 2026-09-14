@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -64,9 +65,11 @@ class InstallAgentsTests(unittest.TestCase):
 
 
 class InstallerEndToEndTests(unittest.TestCase):
-    def run_installer(self, home: Path, *extra: str, expected: int = 0) -> None:
-        with mock.patch.dict(os.environ, HOME=str(home)):
-            run(
+    def run_installer(
+        self, home: Path, *extra: str, expected: int = 0
+    ) -> subprocess.CompletedProcess[str]:
+        with mock.patch.dict(os.environ, HOME=str(home), OMP_PROFILE="", PI_PROFILE=""):
+            return run(
                 [
                     "python3",
                     str(SCRIPTS / "install_skill.py"),
@@ -96,10 +99,10 @@ class InstallerEndToEndTests(unittest.TestCase):
             self.run_installer(home, "--no-agents")
             self.assertFalse((home / ".omp" / "agent" / "agents").exists())
 
-    def test_agent_target_does_not_touch_omp_agent_dir(self) -> None:
+    def test_agent_target_uses_agents_dir_and_skips_omp_agents(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             home = Path(temp)
-            with mock.patch.dict(os.environ, HOME=str(home)):
+            with mock.patch.dict(os.environ, HOME=str(home), OMP_PROFILE="", PI_PROFILE=""):
                 run(
                     [
                         "python3",
@@ -111,7 +114,125 @@ class InstallerEndToEndTests(unittest.TestCase):
                     ],
                     expected=0,
                 )
+            # The generic agent target must stay on ~/.agents/skills — the
+            # cross-tool location ZCode and the skills CLI discover.
+            self.assertTrue(
+                (home / ".agents" / "skills" / "ticket-driven-development" / "SKILL.md").exists()
+            )
+            self.assertFalse((home / ".agent").exists())
             self.assertFalse((home / ".omp" / "agent" / "agents").exists())
+
+    def test_zcode_target_prints_role_mapping_hint(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            home = Path(temp)
+            destination = home / "skill"
+            with mock.patch.dict(os.environ, HOME=str(home), OMP_PROFILE="", PI_PROFILE=""):
+                result = run(
+                    [
+                        "python3",
+                        str(SCRIPTS / "install_skill.py"),
+                        "--target",
+                        "zcode",
+                        "--scope",
+                        "user",
+                        "--destination",
+                        str(destination),
+                    ],
+                    expected=0,
+                )
+            self.assertTrue((destination / "SKILL.md").exists())
+            self.assertIn("ZCode adapter", result.stdout)
+            self.assertIn("--zcode-agents", result.stdout)
+            self.assertFalse((home / ".zcode" / "agents").exists())
+            # The hint is zcode-specific: omp installs stay silent about it.
+            omp = self.run_installer(home, "--destination", str(home / "omp-skill"))
+            self.assertNotIn("ZCode adapter", omp.stdout)
+
+    def test_zcode_agents_installs_converted_profiles(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            home = Path(temp)
+            destination = home / "skill"
+            with mock.patch.dict(os.environ, HOME=str(home), OMP_PROFILE="", PI_PROFILE=""):
+                result = run(
+                    [
+                        "python3",
+                        str(SCRIPTS / "install_skill.py"),
+                        "--target",
+                        "zcode",
+                        "--scope",
+                        "user",
+                        "--destination",
+                        str(destination),
+                        "--zcode-agents",
+                        "--zcode-model",
+                        "tdd-junior=custom:prov%3Aider:GLM-5.3-Flash",
+                    ],
+                    expected=0,
+                )
+            junior = home / ".zcode" / "agents" / "tdd-junior.md"
+            text = junior.read_text(encoding="utf-8")
+            self.assertIn("name: tdd-junior", text)
+            self.assertIn("model: custom:prov%3Aider:GLM-5.3-Flash", text)
+            # omp's flash:medium tier maps to high — ZCode has no medium variant.
+            self.assertIn("thoughtLevel: high", text)
+            # Tool names translate; omp-only tools (lsp, ast_edit) are dropped.
+            self.assertIn("tools: [Read, Write, Edit, Bash, Grep, Glob]", text)
+            # omp-only frontmatter does not carry over.
+            self.assertNotIn("read-summarize", text)
+            # The body becomes the system prompt.
+            self.assertIn("junior implementer", text)
+            # Senior/reviewer get no model pin unless named.
+            senior = (home / ".zcode" / "agents" / "tdd-senior.md").read_text(encoding="utf-8")
+            self.assertNotIn("model:", senior)
+            self.assertIn("thoughtLevel: high", senior)
+            self.assertIn("tools: [Read, Grep, Glob, Bash, WebSearch]", senior)
+            self.assertIn("agents: tdd-junior.md installed", result.stdout)
+            # Re-running is idempotent.
+            with mock.patch.dict(os.environ, HOME=str(home), OMP_PROFILE="", PI_PROFILE=""):
+                rerun = run(
+                    [
+                        "python3",
+                        str(SCRIPTS / "install_skill.py"),
+                        "--target",
+                        "zcode",
+                        "--scope",
+                        "user",
+                        "--destination",
+                        str(destination),
+                        "--force",
+                        "--zcode-agents",
+                        "--zcode-model",
+                        "tdd-junior=custom:prov%3Aider:GLM-5.3-Flash",
+                    ],
+                    expected=0,
+                )
+            self.assertIn("agents: tdd-junior.md identical", rerun.stdout)
+
+    def test_zcode_model_requires_zcode_agents_and_target(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            home = Path(temp)
+            with mock.patch.dict(os.environ, HOME=str(home), OMP_PROFILE="", PI_PROFILE=""):
+                run(
+                    [
+                        "python3",
+                        str(SCRIPTS / "install_skill.py"),
+                        "--target",
+                        "zcode",
+                        "--zcode-model",
+                        "tdd-junior=x",
+                    ],
+                    expected=2,
+                )
+                run(
+                    [
+                        "python3",
+                        str(SCRIPTS / "install_skill.py"),
+                        "--target",
+                        "omp",
+                        "--zcode-agents",
+                    ],
+                    expected=2,
+                )
 
     def test_update_refreshes_stale_agents_without_force(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

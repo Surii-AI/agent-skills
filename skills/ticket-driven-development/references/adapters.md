@@ -130,6 +130,58 @@ Do not depend on OMP’s conversation transcript for recovery. Treat `state.json
 
 For a single ready ticket, prefer one fresh non-isolated `task` worker in the already isolated integration worktree. This preserves the option to follow up with the same worker. Assign only one writer at a time in that worktree.
 
+## ZCode adapter
+
+ZCode exposes an Agent tool whose input carries `subagent_type` and `run_in_background`; its built-in types are `general-purpose` (all tools) and `Explore` (read-only). Install the skill with `python3 <skill-dir>/scripts/install_skill.py --target zcode --scope user` — the installer copies the skill only, because the bundled `agents/*.md` definitions target Oh My Pi and ZCode never loads them.
+
+### Preflight
+
+ZCode has no isolation setting to verify because it offers no native task isolation: concurrency always runs through explicit `make_worktree.py` child worktrees based on the recorded integration commit, per the generic-adapter isolation rules. Resolve `i-have-adhd` at `~/.agents/skills/i-have-adhd/SKILL.md` or `~/.zcode/skills/i-have-adhd/SKILL.md` (repository-local equivalents likewise) and verify it is readable before the first dispatch.
+
+Read the Agent tool's own available-types list. When `tdd-senior`, `tdd-junior`, or `tdd-reviewer` profiles are configured, prefer them per the model-tier table below. When they are absent, dispatch the built-ins; this is never a run-stopper — role discipline comes from the rendered assignment templates, and a run never depends on custom agents. Profiles load at session start, so a definition added mid-session is invisible until the next session; dispatching an unknown type errors recoverably and lists the available agents.
+
+### Dispatch
+
+There is no batch primitive: dispatch one Agent call per worker and issue a wave's calls together in a single turn; `run_in_background: true` gives concurrent implementers async execution with a completion notification. Concurrent implementers each receive an explicit child worktree and an assignment pointing at that absolute path — ZCode has no `isolated` equivalent, so never point two writers at one checkout. The Agent tool takes no structured-output schema, so the templates' compact text return contracts are the return channel.
+
+Under built-ins, every role dispatches as `general-purpose`: the Agent input deliberately omits per-call model selection (the profile or Settings decides model and thinking tier), so record the effective tier from the dispatch result instead of assuming one. `Explore` is read-only but typically pinned to a faster, cheaper tier; it is not a substitute for the senior guide's strong tier.
+
+The recursion prohibition must be stated in every assignment, because a built-in `general-purpose` worker carries every tool, including subagent spawning and skills. The rendered templates already carry the prohibition; `tdd-*` profiles that omit those tools make it structural.
+
+### Results, follow-up, and stopping
+
+A foreground call returns the worker's final message; a background worker notifies on completion. Both carry `totalTokens`, `usage`, and `totalDurationMs` in the result metadata — the only place token totals exist before they are gone; pass them to the same `run_state.py transition --quiet` call that records the result (`--context-tokens`, `--duration-ms`). Agent records persist under `~/.zcode/cli/agents/<session>/<agentId>/` as durable pointers, but recovery trusts `state.json`, `ledger.md`, and Git history — never transcripts.
+
+Follow up by messaging the worker's `agentId` via `SendMessage`: it resumes the same worker with its context intact, matching the bounded one-follow-up-per-collection-cycle rule. Stop a wedged worker with `TaskStop` by task id, then confirm no checkpoint process outlived it before redispatching.
+
+For a single ready ticket, prefer one foreground worker in the already isolated integration worktree — the follow-up channel keeps that same worker reachable.
+
+### Model tiers and custom profiles
+
+ZCode pins model and thinking tier per profile, not per dispatch. The built-in baseline runs every role on `general-purpose` — senior- and reviewer-correct, junior-costly. The optional `tdd-*` profiles recover the tier split. A profile is one Markdown file under `~/.zcode/agents/` (user scope) or `<repo>/.zcode/agents/` (workspace scope) — the same files that Settings → Subagents edits — with required `name` and `description` frontmatter, optional `model`, `thoughtLevel`, `tools`, `disallowedTools`, `maxTurns`, and `injectAgentsMd`, and the body serving as the system prompt:
+
+```markdown
+---
+name: tdd-junior
+description: Junior implementer for ticket-driven development — executes a senior guide's plan verbatim in an assigned workspace, with focused tests and self-review.
+model: <model id as the client writes it, e.g. custom:builtin%3Azai-coding-plan:GLM-5.3-Flash>
+thoughtLevel: high
+tools: [Read, Write, Edit, Bash, Grep, Glob]
+---
+
+<system prompt — the body of the skill's `agents/tdd-junior.md`>
+```
+
+Install the three files with `python3 <skill-dir>/scripts/install_skill.py --target zcode --scope user --zcode-agents`; add `--zcode-model tdd-junior=<id>` (repeatable) to pin per-role models. The `model:` value is the machine-specific identifier the client's model picker uses — copy it from there or from `~/.zcode/v2/agents-state.json`; omitting `model` inherits the session default, which keeps the tool restriction and system prompt but not the tier split. Target shape:
+
+| Profile | Model | Thinking | Tools |
+|---|---|---|---|
+| `tdd-senior` | GLM-5.3 | high | Read, Grep, Glob, Bash, WebSearch |
+| `tdd-junior` | GLM-5.3-Flash | high | Read, Write, Edit, Bash, Grep, Glob |
+| `tdd-reviewer` | GLM-5.3 | high | Read, Grep, Glob, Bash |
+
+ZCode's reasoning variants are low, high, and max — there is no medium, so Oh My Pi's junior `flash:medium` maps to Flash at high, never low: the junior must still notice when the code proves a plan step wrong. Omitting the subagent and skill tools from each profile makes the no-recursion invariant structural. Profiles have no skill autoload: the guide still receives the resolved `{{adhd_skill_path}}` and reads the file itself, which is already the portable path.
+
 ## Generic adapter
 
 If the environment exposes a subagent or task API, map it to the capability contract and use structured results when available. Otherwise, execute sequential tickets in the controller and use fresh subprocess sessions only if the environment supports them safely.

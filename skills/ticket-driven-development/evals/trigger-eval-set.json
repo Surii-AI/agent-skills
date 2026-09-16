@@ -1,0 +1,22 @@
+[
+  {"query": "We have an approved spec for the billing-export phase at SPECS/billing-export.md with four ticket files under .scratch/billing-export/issues. Execute all of the approved tickets end-to-end on an integration branch and report.", "should_trigger": true},
+  {"query": "A previous session started a ticket-driven run in .scratch/calc-phase/runs/r-20260907-a1 but crashed midway. Resume that run from its durable state and carry it to completion without redoing landed work.", "should_trigger": true},
+  {"query": "Here are 6 approved tickets for the search-refactor: 01 tokenizer split, 02 index rebuild (blocked by 01), 03 query parser (blocked by 01), 04 ranking (blocked by 02 and 03), 05 facets (blocked by 04), 06 cleanup (blocked by 05). Implement them all with tests and reviews.", "should_trigger": true},
+  {"query": "Execute these five approved tickets in parallel where possible: they're in tickets/ and the spec is SPEC.md. Pair medium and high risk tickets with guidance and reviews.", "should_trigger": true},
+  {"query": "I have a diamond-shaped dependency graph of four approved feature tickets in .scratch/feature/issues (01 blocks 02 and 03, which both block 04). Run the whole wave plan with durable state so we can resume if interrupted.", "should_trigger": true},
+  {"query": "The indexing script says our ticket directory has zero tickets but I can see .md files in a subfolder. Diagnose whether this run input is valid and stop before implementing anything if it's an input error.", "should_trigger": true},
+  {"query": "Run the remaining tickets of the auth-phase plan: tickets 03 through 07 are still ready, state is in .scratch/auth-phase/state.json, and the integration worktree was already removed.", "should_trigger": true},
+  {"query": "Fix this one-off bug: dividing by zero in format_percent() raises instead of returning the documented fallback.", "should_trigger": false},
+  {"query": "What's the difference between git merge and git cherry-pick?", "should_trigger": false},
+  {"query": "Add a --verbose flag to the CLI's serve command and a unit test for it.", "should_trigger": false},
+  {"query": "Refactor utils.py to use pathlib instead of os.path — it's a single file, no spec, no tickets.", "should_trigger": false},
+  {"query": "Write a migration that adds a created_at column to the users table.", "should_trigger": false},
+  {"query": "Explain why this test is flaky and suggest a fix.", "should_trigger": false},
+  {"query": "Set up a GitHub Actions workflow that runs pytest on every push.", "should_trigger": false},
+  {"query": "Summarize the changes in the last three commits.", "should_trigger": false},
+  {"query": "Our team wants to adopt a ticket-based workflow for future features. What are the tradeoffs compared to trunk-based development with small PRs?", "should_trigger": false},
+  {"query": "Update the README to document the new percent command.", "should_trigger": false},
+  {"query": "There's a merge conflict in src/api.py between main and my feature branch. Resolve it keeping both sides' intent.", "should_trigger": false},
+  {"query": "Benchmark the JSON serializer and tell me if the new version is actually faster.", "should_trigger": false},
+  {"query": "Run the full test suite and tell me which tests fail and why.", "should_trigger": false}
+]

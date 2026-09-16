@@ -112,9 +112,9 @@ Paired tickets split judgment from execution, so role selection is part of dispa
 | Junior implementer | Fastest write-capable (flash/mini tier) | Standard implementer assignment plus the guidance pointer. |
 | Plan-aware reviewer | Strongest available review agent | Standard reviewer assignment plus the guidance pointer. |
 
-When the environment exposes per-task model selection, map the tiers explicitly — for example `opus`-class for the senior roles and `haiku`-class for the junior, or GLM-5.3 at `:high` thinking for the senior roles and GLM-5.3-flash at `:medium` for the junior (medium, not low: the junior must still notice when the code proves a plan step wrong). When it does not (OMP's task tool today exposes agent types, not per-task models), run both senior and junior roles on the default `task` agent and use `reviewer` for the plan-aware review: the pair still earns its keep through context isolation, because the guide's investigation never enters the junior's context window and the plan is re-derived from repository evidence instead of conversation memory.
+When the environment exposes per-task model selection, map the tiers explicitly — for example `opus`-class for the senior roles and `haiku`-class for the junior, or GLM-5.3 at `:high` thinking for the senior roles and GLM-5.3-flash at `:high` for the junior (high, not low: the junior must still notice when the code proves a plan step wrong). When it does not (OMP's task tool today exposes agent types, not per-task models), run both senior and junior roles on the default `task` agent and use `reviewer` for the plan-aware review: the pair still earns its keep through context isolation, because the guide's investigation never enters the junior's context window and the plan is re-derived from repository evidence instead of conversation memory.
 
-On OMP, per-dispatch models are expressed through the installed agent definitions rather than dispatch flags: `tdd-senior` and `tdd-reviewer` pin GLM-5.3 `:high` with read-only tool sets, and `tdd-junior` pins GLM-5.3-flash `:medium`. Without them, default to `task` + `reviewer` as above.
+On OMP, per-dispatch models are expressed through the installed agent definitions rather than dispatch flags: `tdd-senior` and `tdd-reviewer` pin GLM-5.3 `:high` with read-only tool sets, and `tdd-junior` pins GLM-5.3-flash `:high` (the 5.3 model family has no `medium` thinking variant). Without them, default to `task` + `reviewer` as above.
 
 ### Results and repair
 
@@ -180,7 +180,7 @@ Install the three files with `python3 <skill-dir>/scripts/install_skill.py --tar
 | `tdd-junior` | GLM-5.3-Flash | high | Read, Write, Edit, Bash, Grep, Glob | — |
 | `tdd-reviewer` | GLM-5.3 | high | Read, Grep, Glob, Bash | — |
 
-ZCode's reasoning variants are low, high, and max — there is no medium, so Oh My Pi's junior `flash:medium` maps to Flash at high, never low: the junior must still notice when the code proves a plan step wrong. Omitting the subagent and skill tools from each profile makes the no-recursion invariant structural.
+ZCode's reasoning variants are low, high, and max — matching the GLM-5.3 model family, which also has no `medium`, so the omp junior pin `flash:high` carries over as ZCode thoughtLevel `high`, never low: the junior must still notice when the code proves a plan step wrong. Omitting the subagent and skill tools from each profile makes the no-recursion invariant structural.
 
 A profile's `skills:` frontmatter is the ZCode counterpart of Oh My Pi's `autoloadSkills`, as a least-privilege allowlist: ZCode auto-provisions the Skill tool for that profile and filters its skill discovery to exactly the named skills — nothing else is visible. Give `tdd-senior` `skills: [i-have-adhd]` so the guide can load the reader-shaping rules itself; the rendered guide assignment still passes the resolved `{{adhd_skill_path}}` and the guide reads the file directly when the profile is absent, which is the portable path.
 

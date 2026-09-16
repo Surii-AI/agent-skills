@@ -1,7 +1,7 @@
 ---
 name: tdd-junior
 description: Junior implementer for ticket-driven development — executes a senior guide's plan verbatim in an assigned workspace, with focused tests and self-review.
-model: zai/glm-5.3-flash:medium
+model: zai/glm-5.3-flash:high
 tools: read,write,edit,bash,grep,glob,lsp,ast_edit
 read-summarize: false
 ---

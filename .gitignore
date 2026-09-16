@@ -429,3 +429,6 @@ FodyWeavers.xsd
 *.msp
 
 skills/ticket-driven-development-workspace/
+
+# Ticket-driven-development eval workspace (iteration artifacts, fixture repos)
+ticket-driven-development-workspace/

@@ -161,6 +161,18 @@ def reconcile(state_path: Path, apply: bool) -> dict[str, Any]:
     if not integration_head:
         raise RuntimeError(f"integration branch does not exist: {integration_branch}")
 
+    recorded_integration_head = state.get("integration", {}).get("head_sha")
+    canonical_recorded = None
+    if commit_exists(repo, recorded_integration_head):
+        canonical_recorded = git(repo, ["rev-parse", f"{recorded_integration_head}^{{commit}}"]).stdout.strip()
+    run_recommendations: list[str] = []
+    if canonical_recorded != integration_head:
+        run_recommendations.append(
+            "recorded integration.head_sha is stale "
+            f"(recorded {recorded_integration_head}, observed {integration_head}); "
+            "rerun with --apply or pass --integration-head on the next transition"
+        )
+
     ticket_reports: dict[str, Any] = {}
     changes: list[str] = []
     for ticket_id, ticket in state.get("tickets", {}).items():
@@ -224,12 +236,16 @@ def reconcile(state_path: Path, apply: bool) -> dict[str, Any]:
         "state_path": str(state_path.resolve()),
         "integration_branch": integration_branch,
         "integration_head": integration_head,
+        "recorded_integration_head": recorded_integration_head,
+        "run_recommendations": run_recommendations,
         "tickets": ticket_reports,
         "applied": apply,
         "changes": changes,
     }
 
     if apply:
+        if state["integration"].get("head_sha") != integration_head:
+            changes.append(f"integration head true-up: {state['integration'].get('head_sha')} -> {integration_head}")
         state["integration"]["head_sha"] = integration_head
         recompute_frontier(state)
         state["updated_at"] = now()
@@ -247,7 +263,7 @@ def main() -> int:
     parser.add_argument(
         "--quiet",
         action="store_true",
-        help="Print only tickets with recommendations and applied changes instead of the full report",
+        help="Print only run-level and per-ticket recommendations plus applied changes instead of the full report",
     )
     args = parser.parse_args()
 
@@ -264,6 +280,8 @@ def main() -> int:
         }
         print(json.dumps({
             "integration_head": report["integration_head"],
+            "recorded_integration_head": report["recorded_integration_head"],
+            "run_recommendations": report["run_recommendations"],
             "applied": report["applied"],
             "changes": report["changes"],
             "tickets_with_recommendations": exceptions,

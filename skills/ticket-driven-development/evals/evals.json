@@ -3,15 +3,16 @@
   "evals": [
     {
       "id": 0,
-      "prompt": "An approved specification for the 'calc phase' is at SPECS/calc-phase.md in the repository at /root/workspace/agent-skills/ticket-driven-development-workspace/iteration-3/eval-0-four-ticket-diamond/inputs/repo-with, with its ticket directory at .scratch/calc-phase/issues. Execute the approved tickets end-to-end: deliver the work on a tested integration branch rather than the repository's main branch, and finish with a report stating exactly what changed, where it lives, and what passed.",
+      "prompt": "An approved specification for the 'calc phase' is at SPECS/calc-phase.md in the repository at /root/workspace/agent-skills/ticket-driven-development-workspace/iteration-4/eval-0-four-ticket-diamond/inputs/repo-with, with its ticket directory at .scratch/calc-phase/issues. Execute the approved tickets end-to-end: deliver the work on a tested integration branch rather than the repository's main branch, and finish with a report stating exactly what changed, where it lives, and what passed.",
       "expected_output": "All four tickets implemented and integrated on an integration branch; main untouched; suite and CLI behavior verified; durable run state reconciles with Git; paired tickets have guidance and reviews.",
       "files": [],
       "assertions": [
         "integration-branch-holds-all-four-tickets: a non-main branch exists whose history contains distinct commits for tickets 01, 02, 03, and 04, all reachable from one branch head",
         "main-branch-untouched: main HEAD still equals the fixture base SHA and no tracked file in the user checkout is modified (untracked ignored-path leftovers allowed)",
         "suite-passes-at-delivery-head: python3 -m unittest discover -s tests passes at the delivered integration head",
-        "cli-oracle-matches-spec: at the delivered head, `python3 -m calc.cli percent 50 200` prints 25.0, `mean 1 2 3` prints 2.0, `safe-div 8 0 --default 3` prints 3",
-        "run-state-terminal-and-reconciles: a state.json exists with all four tickets in terminal success statuses and reconcile_run.py (dry-run) reports no ticket recommendations",
+        "cli-oracle-matches-spec: at the delivered head, `python3 -m calc percent 50 200` prints 25.0, `mean 1 2 3` prints 2.0, `safe-div 8 0 --default 3` prints 3",
+        "run-state-terminal-and-reconciles: a state.json exists with all four tickets in terminal success statuses and reconcile_run.py (dry-run) reports no recommendations of any kind (ticket-level or run-level)",
+        "state-integration-head-matches-delivery-head: state.json's integration.head_sha equals the delivered integration branch head SHA (git rev-parse of the delivery branch), not the fixture base SHA",
         "paired-tickets-have-guidance-pinned-to-base: guidance documents exist for the medium/high tickets (02, 03, 04), each pinned to a base SHA",
         "reviews-recorded-for-medium-and-high-risk: review files exist for tickets 02, 03, and 04 with PASS verdicts",
         "ledger-records-pairing-and-checkpoints: ledger.md exists and records pairing/guide decisions and checkpoint outcomes"
@@ -19,7 +20,7 @@
     },
     {
       "id": 1,
-      "prompt": "In the repository at /root/workspace/agent-skills/ticket-driven-development-workspace/iteration-3/eval-1-nested-ticket-dir-refusal/inputs/repo-with, the approved calc-phase tickets live in the ticket directory .scratch/calc-phase/nested-issues and the spec is SPECS/calc-phase.md. Execute the tickets end-to-end as usual: integration branch, tested, full report.",
+      "prompt": "In the repository at /root/workspace/agent-skills/ticket-driven-development-workspace/iteration-4/eval-1-nested-ticket-dir-refusal/inputs/repo-with, the approved calc-phase tickets live in the ticket directory .scratch/calc-phase/nested-issues and the spec is SPECS/calc-phase.md. Execute the tickets end-to-end as usual: integration branch, tested, full report.",
       "expected_output": "The controller stops before any implementation: the named directory contains no directly-placed tickets (they are nested one level down). Expected outcome is a clear input-error report naming the problem/path \u2014 no integration branch, no worktree, no code changes, no run state.",
       "files": [],
       "assertions": [
@@ -30,7 +31,7 @@
     },
     {
       "id": 2,
-      "prompt": "The repository at /root/workspace/agent-skills/ticket-driven-development-workspace/iteration-3/eval-2-resume-interrupted-run/inputs/repo-with has an interrupted ticket-driven run from a previous session: durable state and evidence are under .scratch/calc-phase/runs/r-20260907-a1, and an agent/calc-phase/integration branch already exists. Resume that run and carry it to completion without redoing work that already landed; finish with the usual completion report.",
+      "prompt": "The repository at /root/workspace/agent-skills/ticket-driven-development-workspace/iteration-4/eval-2-resume-interrupted-run/inputs/repo-with has an interrupted ticket-driven run from a previous session: durable state and evidence are under .scratch/calc-phase/runs/r-20260907-a1, and an agent/calc-phase/integration branch already exists. Resume that run and carry it to completion without redoing work that already landed; finish with the usual completion report.",
       "expected_output": "Ticket 01's existing integrated commit is preserved (never redispatched); tickets 02-04 are implemented and integrated; final suite passes; state.json/ledger reconcile with Git.",
       "files": [],
       "assertions": [
@@ -38,7 +39,8 @@
         "remaining-tickets-integrated: the delivery branch history contains commits for tickets 02, 03, and 04",
         "suite-passes-at-delivery-head: python3 -m unittest discover -s tests passes at the delivered head",
         "cli-oracle-matches-spec: at the delivered head, the CLI oracle outputs 25.0 / 2.0 / 3 exactly",
-        "run-state-terminal-and-reconciles: state.json shows all four tickets in terminal success statuses and reconcile_run.py dry-run reports no ticket recommendations",
+        "run-state-terminal-and-reconciles: state.json shows all four tickets in terminal success statuses and reconcile_run.py dry-run reports no recommendations of any kind (ticket-level or run-level)",
+        "state-integration-head-matches-delivery-head: state.json's integration.head_sha equals the delivered integration branch head SHA (git rev-parse of the delivery branch), not the fixture base SHA",
         "main-branch-untouched: main HEAD unchanged and no tracked files modified in the user checkout"
       ]
     }

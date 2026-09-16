@@ -144,7 +144,7 @@ python3 <skill-dir>/scripts/package_diff.py \
 
 4. Apply the risk policy in `references/verification-policy.md`. Render `templates/reviewer-prompt.md` when review is required — on paired tickets the plan-aware reviewer also receives the guidance and labels each blocking finding `IMPLEMENTATION` or `PLAN`, which routes repair to the junior or back to the senior guide.
 5. If approved, integrate with deterministic Git. Confirm the ticket head is an ancestor of the integration head, then check elision before scheduling any smoke command: when the worker-verified and integration tree hashes are equal (routine after a clean cherry-pick onto an unmoved base), record both hashes as the checkpoint evidence and stop there. When the trees differ, run the smoke scoped to the ticket — its focused suite plus the components its diff touches, selected with the repository's affected-test selector recorded at preflight (per the "Affected-check selection" section of `references/verification-policy.md`).
-6. Persist every transition with `scripts/run_state.py transition --quiet`, recording measurements from the worker result at collection time — duration and context size are only reliably observable now, and backfilled numbers are guesses.
+6. Persist every transition with `scripts/run_state.py transition --quiet`, recording measurements from the worker result at collection time — duration and context size are only reliably observable now, and backfilled numbers are guesses. Pass `--integration-head <new-tip>` on every transition that records an integration, so the state's recorded integration head tracks the branch it certifies — `state.json` is the resume authority, and a head left at the base SHA is a lie a later resume pays for.
 
 A result with no repository change ends `verified`: confirm its artifacts landed at their assigned run-directory paths, with the report as evidence. A result with a commit ends `integrated`, per invariant 10.
 
@@ -162,7 +162,7 @@ When no ticket is ready but incomplete tickets remain, diagnose an invalid state
 
 Package the full original-base-to-integration-head diff. Run the configured full suite and the requirements-aware final branch review (`templates/final-review-prompt.md`) concurrently — both are read-only against the same final head. Give the review the controller's recorded evidence as input pointers — per-ticket suite outcomes, reviewer oracle results, and packaged diffs — and it runs a command only for a criterion no recorded evidence covers. After a fix wave the suite reruns only when the fix changed code.
 
-If changes are requested, perform one consolidated fix wave and one scoped re-review. Mark the run complete only when all intended tickets are integrated, required checks pass, and the final verdict is `PASS`.
+If changes are requested, perform one consolidated fix wave and one scoped re-review. True up durable state first: run `scripts/reconcile_run.py --state <run-dir>/state.json --apply` so the recorded `integration.head_sha` equals the delivered head — fix-wave commits land after the last ticket transition and would otherwise leave state stale. Mark the run complete only when all intended tickets are integrated, required checks pass, and the final verdict is `PASS`.
 
 ### 12. Measure, report, and clean up safely
 

@@ -636,6 +636,98 @@ class GitHelperTests(unittest.TestCase):
             self.assertIn("tickets_with_recommendations", summary)
             self.assertEqual(summary["tickets_with_recommendations"], {})
 
+    def test_reconcile_flags_and_true_ups_stale_integration_head(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            repo = self.make_repo(root)
+            integration = repo / ".runs" / "integration"
+            run(
+                [
+                    "python3",
+                    str(SCRIPTS / "make_worktree.py"),
+                    "--repo",
+                    str(repo),
+                    "--path",
+                    str(integration),
+                    "--branch",
+                    "agent/demo/integration",
+                    "--metadata",
+                    str(root / "integration.json"),
+                ]
+            )
+            base = git(repo, "rev-parse", "HEAD")
+            # A fix-wave commit lands on the integration branch after the state
+            # was initialized, moving the tip past the recorded head.
+            (integration / "fix.txt").write_text("fix\n", encoding="utf-8")
+            git(integration, "add", "fix.txt")
+            git(integration, "commit", "-m", "fix wave")
+            new_tip = git(repo, "rev-parse", "agent/demo/integration")
+
+            issues = root / "issues"
+            issues.mkdir()
+            (issues / "01-change.md").write_text(
+                "# 01: Change\n\n**What to build:** It works.\n\n"
+                "**Blocked by:** None\n\n- [ ] It works.\n",
+                encoding="utf-8",
+            )
+            index = root / "ticket-index.json"
+            run(["python3", str(SCRIPTS / "index_tickets.py"), str(issues), "--output", str(index)])
+            state = root / "state.json"
+            run(
+                [
+                    "python3",
+                    str(SCRIPTS / "run_state.py"),
+                    "init",
+                    "--index",
+                    str(index),
+                    "--state",
+                    str(state),
+                    "--ledger",
+                    str(root / "ledger.md"),
+                    "--repo",
+                    str(repo),
+                    "--base",
+                    base,
+                    "--integration-branch",
+                    "agent/demo/integration",
+                    "--integration-worktree",
+                    str(integration),
+                ]
+            )
+
+            # Dry-run: run-level recommendation names the drift, no ticket noise.
+            quiet = json.loads(
+                run(
+                    ["python3", str(SCRIPTS / "reconcile_run.py"), "--state", str(state), "--quiet"]
+                ).stdout
+            )
+            self.assertTrue(quiet["run_recommendations"])
+            self.assertIn("stale", quiet["run_recommendations"][0])
+            self.assertIn(base, quiet["run_recommendations"][0])
+            self.assertIn(new_tip, quiet["run_recommendations"][0])
+            self.assertEqual(quiet["recorded_integration_head"], base)
+            self.assertEqual(quiet["tickets_with_recommendations"], {})
+
+            # Apply: true-up records the delivered head.
+            applied = json.loads(
+                run(
+                    ["python3", str(SCRIPTS / "reconcile_run.py"), "--state", str(state), "--apply"]
+                ).stdout
+            )
+            self.assertTrue(
+                any("integration head true-up" in change for change in applied["changes"])
+            )
+            updated = json.loads(state.read_text(encoding="utf-8"))
+            self.assertEqual(updated["integration"]["head_sha"], new_tip)
+
+            # A following dry-run is clean.
+            clean = json.loads(
+                run(
+                    ["python3", str(SCRIPTS / "reconcile_run.py"), "--state", str(state), "--quiet"]
+                ).stdout
+            )
+            self.assertEqual(clean["run_recommendations"], [])
+
 
 if __name__ == "__main__":
     unittest.main()

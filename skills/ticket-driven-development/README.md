@@ -26,7 +26,7 @@ The skill **executes** tickets; it refuses to author them. Ticket format: see `r
 
 ## Pair programming
 
-Medium- and high-risk implementation tickets run as a senior/junior pair: a senior guide (strongest available model) reads the ticket and the code, then writes a bounded, repo-grounded plan shaped by the `i-have-adhd` skill; a junior implementer (fastest write-capable model) executes the plan and records every deviation; one plan-aware review verifies both the plan's soundness and the diff's adherence before integration. Low-risk tickets dispatch directly. A pairing override declared at invocation is authoritative.
+Medium- and high-risk implementation tickets run as a senior/junior pair: a senior guide (strongest available model) reads the ticket and the code, then writes a bounded, repo-grounded plan shaped by the `i-have-adhd` skill; a junior implementer (fastest write-capable model) executes the plan and records every deviation; a risk-tiered review verifies the diff before integration — the full plan-aware review for high-risk pairs, the fast quick review (escalating when a diff is beyond its depth) for medium-risk pairs. Low-risk tickets dispatch directly. A pairing override declared at invocation is authoritative.
 Low-risk tickets dispatch directly and, when they cannot skip review outright, get a quick review from `tdd-quick-reviewer` — the same criterion check on the fast model tier, which escalates to the full reviewer when a diff is beyond its depth.
 
 ## Requirements

@@ -21,9 +21,10 @@ Pairing splits judgment from execution: the senior guide and the plan-aware revi
 | Risk | Treatment |
 |---|---|
 | Low | Direct dispatch: one implementer on the default tier, existing flow unchanged. |
-| Medium, High | Senior guide first (`templates/guide-prompt.md`), then a junior implementer executing the guidance, then one plan-aware review. |
+| Medium | Senior guide first (`templates/guide-prompt.md`), then a junior implementer executing the guidance, then a quick review on the fast tier with the guidance as an input pointer. |
+| High | Senior guide first (`templates/guide-prompt.md`), then a junior implementer executing the guidance, then one plan-aware review. |
 
-A pairing override the user declared at invocation is authoritative in either direction. Review tier follows treatment: paired tickets get the full plan-aware review on the strongest available tier; direct-dispatch (unguided) tickets get a quick review on the fast tier (`templates/quick-reviewer-prompt.md`, agent `tdd-quick-reviewer`) unless the strict skip rule holds. A review-tier or pairing override declared at invocation is authoritative in either direction. Tickets whose entire output is unversioned artifacts skip the pair — there is no implementation to plan. Record the pairing decision for every ticket in the ledger before dispatch.
+A pairing override the user declared at invocation is authoritative in either direction. Review tier follows risk, not treatment: high-risk tickets get the full plan-aware review on the strongest available tier; medium-risk tickets get a quick review on the fast tier (`templates/quick-reviewer-prompt.md`, agent `tdd-quick-reviewer`) with the guidance as an input pointer; direct-dispatch (unguided) tickets get a quick review unless the strict skip rule holds. A review-tier or pairing override declared at invocation is authoritative in either direction. Tickets whose entire output is unversioned artifacts skip the pair — there is no implementation to plan. Record the pairing decision for every ticket in the ledger before dispatch.
 
 Guide dispatches are read-only: batch the guides of independent ready tickets concurrently, exactly like reviews. Guidance is pinned to the junior's start SHA; a moved base regenerates the plan only on **material drift** — changed paths between the guidance base and the actual base that touch the guidance's named files or the ticket's conflict domains. `scripts/guidance_drift.py` decides and `--patch-base` re-pins a still-valid plan; regenerating on every base move re-buys the senior model's whole investigation each time the integration head advances, which per-ticket pipelining makes routine. A guide may stop with `NEEDS_CONTEXT`, `NEEDS_SPLIT`, or `BLOCKED` — handle those exactly like implementer stops (`references/recovery.md`), at guide prices instead of implementer prices: the gate exists to catch malformed tickets before a build agent burns a workspace on them.
 
@@ -46,7 +47,7 @@ When a required service cannot be brought up, either restrict the run to tickets
 |---|---:|---:|---:|
 | Focused tests and self-review | Required | Required | Required |
 | Relevant component check before commit | Required | Required | Required |
-| Independent ticket diff review | Quick review on the fast tier unless the strict skip rule holds; ESCALATE bumps to full review | Required | Required with the strongest appropriate reviewer |
+| Independent ticket diff review | Quick review on the fast tier unless the strict skip rule holds; ESCALATE bumps to full review | Quick review on the fast tier (guidance as input pointer) unless escalated; ESCALATE bumps to full plan-aware review | Required with the strongest appropriate reviewer |
 | Integration smoke check (scoped to the ticket: focused suite + affected components; elision checked first) | After each integration; gates only that ticket's dependents | After each integration; gates only that ticket's dependents | After every integration, wave-wide barrier before further dispatch |
 | Requirements-aware final branch review | Required | Required | Required |
 | Full configured suite | Once at branch end unless cheap | Once at branch end | At defined milestones and branch end |
@@ -65,7 +66,7 @@ Record the skip and its reason in the ledger. Ambiguity means review, not skip.
 
 ## Quick review and escalation
 
-The quick review covers criterion-vs-diff verification, a regression scan, and the dependency-interface check. It has no independent oracle, does not judge plans, and runs at most one targeted command.
+The quick review covers criterion-vs-diff verification, a regression scan, and the dependency-interface check. It has no independent oracle, does not judge plans, and runs at most one targeted command. For a paired medium-risk ticket the guidance document rides along as an input pointer for context; the quick reviewer never judges the plan — a material doubt about the plan's soundness is an `ESCALATE` reason, routing the ticket to the plan-aware review.
 
 ESCALATE handling: at most one escalation per ticket. The controller re-renders `templates/reviewer-prompt.md` with an empty guidance pointer — the full review's verdict replaces the quick verdict, with no further tier changes or loops. Record the escalation and its reason in the ledger.
 
@@ -105,7 +106,7 @@ After every ticket is integrated:
 
 1. Package the complete original-base-to-integration-head diff.
 2. Run the configured full suite and the requirements-aware review (`templates/final-review-prompt.md`) concurrently — both are read-only against the same final head. Record exact commands and results.
-3. If changes are requested, perform one consolidated fix wave and one scoped re-review. The full suite must pass at the final head: rerun it after the fix wave only when the fix changed code; documentation-only fixes need no rerun.
+3. If changes are requested, dispatch the fix wave per `references/scheduling.md` ('Dispatch a fix wave') — consolidated by default, parallel for disjoint fixes — then one scoped re-review. The full suite must pass at the final head: rerun it after the fix wave only when the fix changed code; documentation-only fixes need no rerun.
 4. Mark the run complete only when Git reachability, tests, and final review all pass.
 
 **Ambient failure adjudication.** A failing full suite is a regression until proven otherwise. Reclassify a failure as pre-existing ambient flake only when all of these hold: the failing files are untouched by the base-to-head diff; the same suite fails nondeterministically across reruns (different tests or orderings each run); and the failing tests pass in isolation and at the exact final head. Then record the evidence as a deferred observation, report those tests as pre-existing and unverified — never as passing — and proceed. A failure in a file the branch touches, or any deterministic failure, blocks completion.

@@ -274,6 +274,69 @@ def record(args: argparse.Namespace) -> dict[str, Any]:
     return state
 
 
+def checkpoint(args: argparse.Namespace) -> dict[str, Any]:
+    state_path = args.state.resolve()
+    state = read_json(state_path)
+    if args.ticket not in state.get("tickets", {}):
+        raise RuntimeError(f"unknown ticket id: {args.ticket}")
+    message = f"Ticket {args.ticket}: checkpoint {args.kind} {args.outcome}."
+    metadata = {"ticket": args.ticket, "kind": args.kind, "outcome": args.outcome, "evidence": args.evidence}
+    state["updated_at"] = now()
+    atomic_write_json(state_path, state)
+    append_ledger(Path(state["ledger_path"]), "checkpoint-outcome", message, metadata)
+    args.summary = {"command": "checkpoint", "ticket": args.ticket, "kind": args.kind, "outcome": args.outcome}
+    return state
+
+
+def _rewrite_paths(node: Any, old: str, new: str) -> Any:
+    if isinstance(node, dict):
+        return {key: _rewrite_paths(value, old, new) for key, value in node.items()}
+    if isinstance(node, list):
+        return [_rewrite_paths(item, old, new) for item in node]
+    if isinstance(node, str) and (node == old or node.startswith(old + "/")):
+        return new + node[len(old):]
+    return node
+
+
+def repair_paths(args: argparse.Namespace) -> dict[str, Any]:
+    state_path = args.state.resolve()
+    state = read_json(state_path)
+    old_repo = str(state["repo_root"])
+    new_repo = str(args.repo.resolve())
+    if old_repo == new_repo:
+        raise RuntimeError("repo root is unchanged; nothing to repair")
+    if not (args.repo.resolve() / ".git").exists():
+        raise RuntimeError(f"not a git repository: {new_repo}")
+    # Two independent anchors: the old repository root and the old run
+    # directory (the ledger's recorded parent). Paths under the repo map to
+    # the new repo; paths under the old run dir map to the state file's new
+    # parent. Anything else (e.g. a spec recorded outside both) is left
+    # untouched rather than guessed at.
+    old_run_dir = str(Path(state["ledger_path"]).resolve().parent)
+    mappings = [
+        (old_repo, new_repo),
+        (old_run_dir, str(state_path.parent)),
+    ]
+
+    def rewrite(node: Any) -> Any:
+        if isinstance(node, dict):
+            return {key: rewrite(value) for key, value in node.items()}
+        if isinstance(node, list):
+            return [rewrite(item) for item in node]
+        if isinstance(node, str):
+            for old, new in mappings:
+                if node == old or node.startswith(old + "/"):
+                    return new + node[len(old):]
+        return node
+
+    state = rewrite(state)
+    state["updated_at"] = now()
+    atomic_write_json(state_path, state)
+    append_ledger(Path(state["ledger_path"]), "path-repair", f"Rewrote repo root {old_repo} → {new_repo} and run dir {old_run_dir} → {state_path.parent} across state paths.")
+    args.summary = {"command": "repair-paths", "from": old_repo, "to": new_repo}
+    return state
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -336,6 +399,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print a one-line summary instead of the full state JSON (state.json stays authoritative)",
     )
     note.set_defaults(handler=record)
+
+    mark = subparsers.add_parser("checkpoint", help="Record a checkpoint outcome in the ledger (no status change)")
+    mark.add_argument("--state", type=Path, required=True)
+    mark.add_argument("--ticket", required=True)
+    mark.add_argument("--kind", choices=["smoke", "suite", "elision", "service"], required=True)
+    mark.add_argument("--outcome", choices=["pass", "fail"], required=True)
+    mark.add_argument("--evidence", help="Command + result, or both tree hashes for elision")
+    mark.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Print a one-line summary instead of the full state JSON (state.json stays authoritative)",
+    )
+    mark.set_defaults(handler=checkpoint)
+
+    repath = subparsers.add_parser("repair-paths", help="Rewrite stale absolute paths after the repo moves")
+    repath.add_argument("--state", type=Path, required=True)
+    repath.add_argument("--repo", type=Path, required=True)
+    repath.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Print a one-line summary instead of the full state JSON (state.json stays authoritative)",
+    )
+    repath.set_defaults(handler=repair_paths)
 
     return parser
 

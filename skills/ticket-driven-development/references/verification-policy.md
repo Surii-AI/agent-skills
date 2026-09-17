@@ -82,7 +82,7 @@ git rev-parse <worker-head-sha>^{tree}
 git rev-parse <integration-head-sha>^{tree}
 ```
 
-Check elision before scheduling any smoke command — it is the cheapest checkpoint that exists. When the two tree hashes are equal, the integration head is byte-identical to the tree whose component check already passed — a smoke run would re-execute the exact same code. Record both tree hashes in the ledger as the checkpoint evidence and treat the checkpoint as passed. This arises routinely in per-ticket pipelined scheduling, where a single-ticket integration onto an unmoved base reproduces the worker's tree exactly.
+Check elision before scheduling any smoke command — it is the cheapest checkpoint that exists. When the two tree hashes are equal, the integration head is byte-identical to the tree whose component check already passed — a smoke run would re-execute the exact same code. Record both tree hashes with `scripts/run_state.py checkpoint --ticket <id> --kind elision --outcome pass --evidence "<worker-hash> <integration-hash>"` and treat the checkpoint as passed. This arises routinely in per-ticket pipelined scheduling, where a single-ticket integration onto an unmoved base reproduces the worker's tree exactly.
 
 The elision is void whenever the trees differ: the integration base moved, another ticket landed first, or a conflict was resolved. Then run the smoke checkpoint normally. High-risk runs may keep a wave-wide smoke barrier by choice even when trees match; record that choice as a ruling.
 

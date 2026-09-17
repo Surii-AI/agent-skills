@@ -37,6 +37,8 @@
       "assertions": [
         "existing-ticket-01-not-redispatched: the pre-existing integrated commit for ticket 01 (recorded in fixture-shas.json) remains an ancestor of the final delivery head, and history adds no second commit implementing percent",
         "remaining-tickets-integrated: the delivery branch history contains commits for tickets 02, 03, and 04",
+        "phantom-commit-claims-adjudicated: the run adjudicates the fixture ledger's claims that tickets 02-04 integrated at commits that do not exist in history — the ledger or state records a deferred/unverified finding naming at least one phantom SHA, instead of trusting the claim",
+        "resumed-paired-tickets-have-guidance-pinned-to-base: guidance/02.md, guidance/03.md, and guidance/04.md exist in the resumed run directory and each pins its plan to the fixture base SHA",
         "suite-passes-at-delivery-head: python3 -m unittest discover -s tests passes at the delivered head",
         "cli-oracle-matches-spec: at the delivered head, the CLI oracle outputs 25.0 / 2.0 / 3 exactly",
         "run-state-terminal-and-reconciles: state.json shows all four tickets in terminal success statuses and reconcile_run.py dry-run reports no recommendations of any kind (ticket-level or run-level)",

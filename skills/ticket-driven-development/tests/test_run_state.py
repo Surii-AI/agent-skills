@@ -291,5 +291,176 @@ class RunStateTransitionTests(unittest.TestCase):
             self.assertNotIn("\n", result.stdout.strip())
 
 
+
+
+class RunStateCheckpointAndRepairTests(unittest.TestCase):
+    def make_initialized_state(self, root: Path) -> Path:
+        repo = root / "repo"
+        repo.mkdir()
+        git(repo, "init")
+        git(repo, "config", "user.email", "test@example.com")
+        git(repo, "config", "user.name", "Test User")
+        (repo / "app.txt").write_text("base\n", encoding="utf-8")
+        git(repo, "add", ".")
+        git(repo, "commit", "-m", "base")
+
+        issues = root / "issues"
+        issues.mkdir()
+        (issues / "01-change.md").write_text(
+            "# 01: Change app\n\n**What to build:** App changes.\n\n"
+            "**Blocked by:** None\n\n- [ ] Change is visible.\n",
+            encoding="utf-8",
+        )
+        index = root / "ticket-index.json"
+        run(["python3", str(SCRIPTS / "index_tickets.py"), str(issues), "--output", str(index)])
+
+        state = root / "state.json"
+        run(
+            [
+                "python3",
+                str(SCRIPTS / "run_state.py"),
+                "init",
+                "--index",
+                str(index),
+                "--state",
+                str(state),
+                "--ledger",
+                str(root / "ledger.md"),
+                "--repo",
+                str(repo),
+                "--base",
+                "HEAD",
+                "--integration-branch",
+                "agent/demo/integration",
+                "--integration-worktree",
+                str(root / "worktree"),
+            ]
+        )
+        return state
+
+    def read(self, state: Path) -> dict:
+        return json.loads(state.read_text(encoding="utf-8"))
+
+    def test_checkpoint_appends_ledger_entry_without_status_change(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            state = self.make_initialized_state(root)
+            run(
+                [
+                    "python3", str(SCRIPTS / "run_state.py"), "checkpoint",
+                    "--state", str(state), "--ticket", "01",
+                    "--kind", "elision", "--outcome", "pass",
+                    "--evidence", "abc1234 def5678",
+                ],
+            )
+            ledger = (state.parent / "ledger.md").read_text(encoding="utf-8")
+            self.assertIn("checkpoint-outcome", ledger)
+            self.assertIn("elision", ledger)
+            self.assertIn("abc1234 def5678", ledger)
+            self.assertEqual(self.read(state)["tickets"]["01"]["status"], "ready")
+
+    def test_checkpoint_unknown_ticket_exits_2(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            state = self.make_initialized_state(Path(temp))
+            result = run(
+                [
+                    "python3", str(SCRIPTS / "run_state.py"), "checkpoint",
+                    "--state", str(state), "--ticket", "99",
+                    "--kind", "smoke", "--outcome", "pass",
+                ],
+                expected=2,
+            )
+            self.assertIn("unknown ticket id", result.stderr)
+
+    def test_checkpoint_rejects_invalid_kind_and_outcome(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            state = self.make_initialized_state(Path(temp))
+            run(
+                [
+                    "python3", str(SCRIPTS / "run_state.py"), "checkpoint",
+                    "--state", str(state), "--ticket", "01",
+                    "--kind", "bogus", "--outcome", "pass",
+                ],
+                expected=2,
+            )
+            run(
+                [
+                    "python3", str(SCRIPTS / "run_state.py"), "checkpoint",
+                    "--state", str(state), "--ticket", "01",
+                    "--kind", "smoke", "--outcome", "maybe",
+                ],
+                expected=2,
+            )
+
+    def test_repair_paths_rewrites_state_paths_and_logs(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            state = self.make_initialized_state(root)
+            second = root / "second"
+            second.mkdir()
+            for entry in list(root.iterdir()):
+                if entry != second:
+                    (second / entry.name).parent.mkdir(exist_ok=True)
+                    entry.rename(second / entry.name)
+            new_state = second / "state.json"
+            run(
+                [
+                    "python3", str(SCRIPTS / "run_state.py"), "repair-paths",
+                    "--state", str(new_state), "--repo", str(second / "repo"),
+                ],
+            )
+            data = self.read(new_state)
+            for key in ("repo_root", "ledger_path", "ticket_index_path"):
+                self.assertTrue(str(data[key]).startswith(str(second)), key)
+            self.assertTrue(data["integration"]["worktree"].startswith(str(second)))
+            ledger = (second / "ledger.md").read_text(encoding="utf-8")
+            self.assertIn("path-repair", ledger)
+
+    def test_repair_paths_anchors_and_outside_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            state = self.make_initialized_state(root)
+            outside = root / "elsewhere" / "spec.md"
+            outside.parent.mkdir()
+            outside.write_text("spec\n", encoding="utf-8")
+            stale = "/nonexistent-host/archive/spec.md"
+            data = self.read(state)
+            data["spec_path"] = str(outside)
+            data["external_notes"] = stale
+            state.write_text(json.dumps(data), encoding="utf-8")
+            second = root / "second"
+            second.mkdir()
+            for entry in list(root.iterdir()):
+                if entry != second:
+                    entry.rename(second / entry.name)
+            new_state = second / "state.json"
+            run(
+                [
+                    "python3", str(SCRIPTS / "run_state.py"), "repair-paths",
+                    "--state", str(new_state), "--repo", str(second / "repo"),
+                ],
+            )
+            fixed = self.read(new_state)
+            # Moved with the run dir tree.
+            self.assertTrue(str(fixed["spec_path"]).startswith(str(second)))
+            self.assertTrue(str(fixed["repo_root"]).startswith(str(second)))
+            self.assertTrue(str(fixed["ledger_path"]).startswith(str(second)))
+            # Under neither the old repo root nor the old run dir: untouched.
+            self.assertEqual(fixed["external_notes"], stale)
+
+    def test_repair_paths_rejects_non_git_repo(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            state = self.make_initialized_state(root)
+            not_git = root / "elsewhere"
+            not_git.mkdir()
+            result = run(
+                [
+                    "python3", str(SCRIPTS / "run_state.py"), "repair-paths",
+                    "--state", str(state), "--repo", str(not_git),
+                ],
+                expected=2,
+            )
+            self.assertIn("not a git repository", result.stderr)
 if __name__ == "__main__":
     unittest.main()

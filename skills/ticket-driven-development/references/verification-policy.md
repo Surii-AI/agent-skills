@@ -23,7 +23,7 @@ Pairing splits judgment from execution: the senior guide and the plan-aware revi
 | Low | Direct dispatch: one implementer on the default tier, existing flow unchanged. |
 | Medium, High | Senior guide first (`templates/guide-prompt.md`), then a junior implementer executing the guidance, then one plan-aware review. |
 
-A pairing override the user declared at invocation is authoritative in either direction. Tickets whose entire output is unversioned artifacts skip the pair — there is no implementation to plan. Record the pairing decision for every ticket in the ledger before dispatch.
+A pairing override the user declared at invocation is authoritative in either direction. Review tier follows treatment: paired tickets get the full plan-aware review on the strongest available tier; direct-dispatch (unguided) tickets get a quick review on the fast tier (`templates/quick-reviewer-prompt.md`, agent `tdd-quick-reviewer`) unless the strict skip rule holds. A review-tier or pairing override declared at invocation is authoritative in either direction. Tickets whose entire output is unversioned artifacts skip the pair — there is no implementation to plan. Record the pairing decision for every ticket in the ledger before dispatch.
 
 Guide dispatches are read-only: batch the guides of independent ready tickets concurrently, exactly like reviews. Guidance is pinned to the junior's start SHA; a moved base regenerates the plan only on **material drift** — changed paths between the guidance base and the actual base that touch the guidance's named files or the ticket's conflict domains. `scripts/guidance_drift.py` decides and `--patch-base` re-pins a still-valid plan; regenerating on every base move re-buys the senior model's whole investigation each time the integration head advances, which per-ticket pipelining makes routine. A guide may stop with `NEEDS_CONTEXT`, `NEEDS_SPLIT`, or `BLOCKED` — handle those exactly like implementer stops (`references/recovery.md`), at guide prices instead of implementer prices: the gate exists to catch malformed tickets before a build agent burns a workspace on them.
 
@@ -46,7 +46,7 @@ When a required service cannot be brought up, either restrict the run to tickets
 |---|---:|---:|---:|
 | Focused tests and self-review | Required | Required | Required |
 | Relevant component check before commit | Required | Required | Required |
-| Independent ticket diff review | Optional only under the strict skip rule | Required | Required with the strongest appropriate reviewer |
+| Independent ticket diff review | Quick review on the fast tier unless the strict skip rule holds; ESCALATE bumps to full review | Required | Required with the strongest appropriate reviewer |
 | Integration smoke check (scoped to the ticket: focused suite + affected components; elision checked first) | After each integration; gates only that ticket's dependents | After each integration; gates only that ticket's dependents | After every integration, wave-wide barrier before further dispatch |
 | Requirements-aware final branch review | Required | Required | Required |
 | Full configured suite | Once at branch end unless cheap | Once at branch end | At defined milestones and branch end |
@@ -62,6 +62,16 @@ Skip independent ticket review only when all conditions hold:
 - The diff remains included in the wave review or final branch review.
 
 Record the skip and its reason in the ledger. Ambiguity means review, not skip.
+
+## Quick review and escalation
+
+The quick review covers criterion-vs-diff verification, a regression scan, and the dependency-interface check. It has no independent oracle, does not judge plans, and runs at most one targeted command.
+
+ESCALATE handling: at most one escalation per ticket. The controller re-renders `templates/reviewer-prompt.md` with an empty guidance pointer — the full review's verdict replaces the quick verdict, with no further tier changes or loops. Record the escalation and its reason in the ledger.
+
+Repair routing: quick-review blocking findings carry no `PLAN` label (nothing was planned) — route them exactly like `IMPLEMENTATION` findings under the existing two-round cap. A scoped re-review after repair runs at the quick tier, unless the ticket had escalated, in which case it runs at the full tier.
+
+The ledger records the review tier and any escalation alongside the verdict.
 
 ## Eliding redundant smoke checks
 

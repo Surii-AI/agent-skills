@@ -17,7 +17,7 @@ try:
 finally:
     pass
 
-AGENT_NAMES = ["tdd-junior.md", "tdd-reviewer.md", "tdd-senior.md"]
+AGENT_NAMES = ["tdd-junior.md", "tdd-quick-reviewer.md", "tdd-reviewer.md", "tdd-senior.md"]
 
 
 def make_agents_source(root: Path) -> Path:
@@ -225,6 +225,12 @@ class InstallerEndToEndTests(unittest.TestCase):
             # omp autoloadSkills carries over as the ZCode skills allowlist.
             self.assertIn("skills: [i-have-adhd]", senior)
             self.assertNotIn("skills:", text)
+            # Quick reviewer carries the flash-tier conversion with no model pin.
+            quick = (home / ".zcode" / "agents" / "tdd-quick-reviewer.md").read_text(encoding="utf-8")
+            self.assertIn("thoughtLevel: high", quick)
+            self.assertIn("tools: [Read, Grep, Glob, Bash]", quick)
+            self.assertNotIn("model:", quick)
+            self.assertNotIn("skills:", quick)
             self.assertIn("agents: tdd-junior.md installed", result.stdout)
             # Re-running is idempotent.
             with mock.patch.dict(os.environ, HOME=str(home), OMP_PROFILE="", PI_PROFILE=""):

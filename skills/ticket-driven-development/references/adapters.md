@@ -28,13 +28,13 @@ python3 <skill-dir>/scripts/install_skill.py --target omp --scope user
 ```
 
 The installer copies the portable source and adds OMP’s supported top-level `disable-model-invocation: true` field to the installed copy. Use `--scope project --project <repo>` for a repository-local installation. Codex, OpenCode, ZCode (`--target zcode`), and generic Agent Skills locations are available through the corresponding `--target` value.
-For `--target omp --scope user`, the installer also copies the three agent definitions — `tdd-senior`, `tdd-junior`, `tdd-reviewer` — into `~/.omp/agent/agents/` (`--scope project` targets the repository's `.omp/agents/`). Differing files already present are skipped unless `--force` is passed; `--no-agents` skips agent installation entirely. The `tdd-senior` definition autoloads the `i-have-adhd` skill via OMP's `autoloadSkills` frontmatter; the rendered guide prompt still passes the resolved `{{adhd_skill_path}}` as the portable fallback. The definition's body itself also instructs the guide to load the skill, so the dependency travels with the agent on platforms that have neither autoload nor a skills allowlist.
+For `--target omp --scope user`, the installer also copies the four agent definitions — `tdd-senior`, `tdd-junior`, `tdd-reviewer`, `tdd-quick-reviewer` — into `~/.omp/agent/agents/` (`--scope project` targets the repository's `.omp/agents/`). Differing files already present are skipped unless `--force` is passed; `--no-agents` skips agent installation entirely. The `tdd-senior` definition autoloads the `i-have-adhd` skill via OMP's `autoloadSkills` frontmatter; the rendered guide prompt still passes the resolved `{{adhd_skill_path}}` as the portable fallback. The definition's body itself also instructs the guide to load the skill, so the dependency travels with the agent on platforms that have neither autoload nor a skills allowlist.
 
 ### Preflight
 
 Verify that the skill was explicitly invoked. Open `/settings` and ensure **Tasks → Isolation Mode** is not `none` before requesting isolated tasks. Prefer branch merge strategy when the environment exposes that choice, because branch and commit metadata are easier to reconcile than anonymous patches. Keep active implementers within the concurrency policy of `references/scheduling.md`, even if `task.maxConcurrency` is larger.
 
-Use the built-in `task` agent for implementation and `reviewer` for independent review: they remain the portable baseline, and a run never depends on custom agents. When the installed `tdd-*` definitions are present (`~/.omp/agent/agents/tdd-junior.md`, `tdd-senior.md`, `tdd-reviewer.md` exist), prefer them per the model-tier table below — they pin per-role model tiers and tool restrictions the `task` tool cannot express. If they are absent, fall back to the built-ins; this is never a run-stopper.
+Use the built-in `task` agent for implementation and `reviewer` for independent review: they remain the portable baseline, and a run never depends on custom agents. When the installed `tdd-*` definitions are present (`~/.omp/agent/agents/tdd-junior.md`, `tdd-senior.md`, `tdd-reviewer.md`, `tdd-quick-reviewer.md` exist), prefer them per the model-tier table below — they pin per-role model tiers and tool restrictions the `task` tool cannot express. If they are absent, fall back to the built-ins; this is never a run-stopper.
 
 The guide role adds a hard preflight dependency: the `i-have-adhd` skill whose rules shape every guidance document. Resolve its file before the first dispatch — in OMP, `skill://i-have-adhd/SKILL.md`, typically installed at `~/.agents/skills/i-have-adhd/SKILL.md` in user scope or the repository-local equivalent — verify it is readable, and pass the resolved absolute path as `{{adhd_skill_path}}` in every guide dispatch. If it cannot be resolved, stop before dispatching anything and report the missing dependency; do not silently substitute an unshaped guide.
 
@@ -83,6 +83,23 @@ Use the same mechanism for ticket reviewers with this schema, so verdicts reach 
 }
 ```
 
+Quick reviewers use the same fields with the extended verdict enum, so an `ESCALATE` verdict reaches the controller as data:
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "ticket", "blocking_findings", "review", "summary"],
+  "properties": {
+    "verdict": {"enum": ["PASS", "CHANGES_REQUESTED", "BLOCKED", "ESCALATE"]},
+    "ticket": {"type": "string"},
+    "blocking_findings": {"type": "integer"},
+    "review": {"type": "string"},
+    "summary": {"type": "string"}
+  }
+}
+```
+
 And for senior guide dispatches with this schema, so plan readiness reaches the controller as data:
 
 ```json
@@ -111,10 +128,11 @@ Paired tickets split judgment from execution, so role selection is part of dispa
 | Senior guide | Strongest available (extended-thinking tier) | Read-only; renders `templates/guide-prompt.md`; returns the guide contract. |
 | Junior implementer | Fastest write-capable (flash/mini tier) | Standard implementer assignment plus the guidance pointer. |
 | Plan-aware reviewer | Strongest available review agent | Standard reviewer assignment plus the guidance pointer. |
+| Quick reviewer | Fast review tier (flash) | Lean quick-review assignment (templates/quick-reviewer-prompt.md); returns ESCALATE for anything beyond its depth. |
 
-When the environment exposes per-task model selection, map the tiers explicitly — for example `opus`-class for the senior roles and `haiku`-class for the junior, or GLM-5.3 at `:high` thinking for the senior roles and GLM-5.3-flash at `:high` for the junior (high, not low: the junior must still notice when the code proves a plan step wrong). When it does not (OMP's task tool today exposes agent types, not per-task models), run both senior and junior roles on the default `task` agent and use `reviewer` for the plan-aware review: the pair still earns its keep through context isolation, because the guide's investigation never enters the junior's context window and the plan is re-derived from repository evidence instead of conversation memory.
+When the environment exposes per-task model selection, map the tiers explicitly — for example `opus`-class for the senior roles and `haiku`-class for the junior, or GLM-5.3 at `:high` thinking for the senior roles and GLM-5.3-flash at `:high` for the junior and the quick reviewer (high, not low: the junior must still notice when the code proves a plan step wrong). When it does not (OMP's task tool today exposes agent types, not per-task models), run both senior and junior roles on the default `task` agent and use `reviewer` for the plan-aware review: the pair still earns its keep through context isolation, because the guide's investigation never enters the junior's context window and the plan is re-derived from repository evidence instead of conversation memory.
 
-On OMP, per-dispatch models are expressed through the installed agent definitions rather than dispatch flags: `tdd-senior` and `tdd-reviewer` pin GLM-5.3 `:high` with read-only tool sets, and `tdd-junior` pins GLM-5.3-flash `:high` (the 5.3 model family has no `medium` thinking variant). Without them, default to `task` + `reviewer` as above.
+On OMP, per-dispatch models are expressed through the installed agent definitions rather than dispatch flags: `tdd-senior` and `tdd-reviewer` pin GLM-5.3 `:high` with read-only tool sets, and `tdd-junior` pins GLM-5.3-flash `:high` (the 5.3 model family has no `medium` thinking variant); `tdd-quick-reviewer` likewise pins GLM-5.3-flash `:high` with a read-only tool set. Without them, default to `task` + `reviewer` as above.
 
 ### Results and repair
 
@@ -138,7 +156,7 @@ ZCode exposes an Agent tool whose input carries `subagent_type` and `run_in_back
 
 ZCode has no isolation setting to verify because it offers no native task isolation: concurrency always runs through explicit `make_worktree.py` child worktrees based on the recorded integration commit, per the generic-adapter isolation rules. Resolve `i-have-adhd` at `~/.agents/skills/i-have-adhd/SKILL.md` or `~/.zcode/skills/i-have-adhd/SKILL.md` (repository-local equivalents likewise) and verify it is readable before the first dispatch.
 
-Read the Agent tool's own available-types list. When `tdd-senior`, `tdd-junior`, or `tdd-reviewer` profiles are configured, prefer them per the model-tier table below. When they are absent, dispatch the built-ins; this is never a run-stopper — role discipline comes from the rendered assignment templates, and a run never depends on custom agents. Profiles load at session start, so a definition added mid-session is invisible until the next session; dispatching an unknown type errors recoverably and lists the available agents.
+Read the Agent tool's own available-types list. When `tdd-senior`, `tdd-junior`, `tdd-reviewer`, or `tdd-quick-reviewer` profiles are configured, prefer them per the model-tier table below. When they are absent, dispatch the built-ins; this is never a run-stopper — role discipline comes from the rendered assignment templates, and a run never depends on custom agents. Profiles load at session start, so a definition added mid-session is invisible until the next session; dispatching an unknown type errors recoverably and lists the available agents.
 
 ### Dispatch
 
@@ -172,15 +190,16 @@ tools: [Read, Write, Edit, Bash, Grep, Glob]
 <system prompt — the body of the skill's `agents/tdd-junior.md`>
 ```
 
-Install the three files with `python3 <skill-dir>/scripts/install_skill.py --target zcode --scope user --zcode-agents`; add `--zcode-model tdd-junior=<id>` (repeatable) to pin per-role models. The `model:` value is the machine-specific identifier the client's model picker uses — copy it from there or from `~/.zcode/v2/agents-state.json`; omitting `model` inherits the session default, which keeps the tool restriction and system prompt but not the tier split. Target shape:
+Install the four files with `python3 <skill-dir>/scripts/install_skill.py --target zcode --scope user --zcode-agents`; add `--zcode-model tdd-junior=<id>` (repeatable) to pin per-role models. The `model:` value is the machine-specific identifier the client's model picker uses — copy it from there or from `~/.zcode/v2/agents-state.json`; omitting `model` inherits the session default, which keeps the tool restriction and system prompt but not the tier split. Target shape:
 
 | Profile | Model | Thinking | Tools | Skills |
 |---|---|---|---|---|
 | `tdd-senior` | GLM-5.3 | high | Read, Grep, Glob, Bash, WebSearch | i-have-adhd |
 | `tdd-junior` | GLM-5.3-Flash | high | Read, Write, Edit, Bash, Grep, Glob | — |
 | `tdd-reviewer` | GLM-5.3 | high | Read, Grep, Glob, Bash | — |
+| `tdd-quick-reviewer` | GLM-5.3-Flash | high | Read, Grep, Glob, Bash | — |
 
-ZCode's reasoning variants are low, high, and max — matching the GLM-5.3 model family, which also has no `medium`, so the omp junior pin `flash:high` carries over as ZCode thoughtLevel `high`, never low: the junior must still notice when the code proves a plan step wrong. Omitting the subagent and skill tools from each profile makes the no-recursion invariant structural.
+ZCode's reasoning variants are low, high, and max — matching the GLM-5.3 model family, which also has no `medium`, so the omp junior pin `flash:high` carries over as ZCode thoughtLevel `high`, never low: the junior must still notice when the code proves a plan step wrong, and the quick reviewer must still notice when a diff is beyond its depth. Omitting the subagent and skill tools from each profile makes the no-recursion invariant structural.
 
 A profile's `skills:` frontmatter is the ZCode counterpart of Oh My Pi's `autoloadSkills`, as a least-privilege allowlist: ZCode auto-provisions the Skill tool for that profile and filters its skill discovery to exactly the named skills — nothing else is visible. Give `tdd-senior` `skills: [i-have-adhd]` so the guide can load the reader-shaping rules itself; the rendered guide assignment still passes the resolved `{{adhd_skill_path}}` and the guide reads the file directly when the profile is absent, which is the portable path.
 

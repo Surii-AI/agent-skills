@@ -2,6 +2,7 @@
 name: tdd-reviewer
 description: Plan-aware reviewer for ticket-driven development — verifies a ticket diff against its acceptance criteria and the senior guidance that produced it.
 model: zai/glm-5.3:high
+thinking: high
 tools: read,grep,glob,bash
 read-summarize: false
 ---

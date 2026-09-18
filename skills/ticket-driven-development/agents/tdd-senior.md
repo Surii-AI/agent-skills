@@ -2,6 +2,7 @@
 name: tdd-senior
 description: Senior guide for ticket-driven development — read-only planner that writes bounded, repo-grounded implementation guidance.
 model: zai/glm-5.3:high
+thinking: high
 tools: read,grep,glob,bash,web_search
 read-summarize: false
 autoloadSkills:

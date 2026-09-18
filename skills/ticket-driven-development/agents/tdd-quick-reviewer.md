@@ -2,6 +2,7 @@
 name: tdd-quick-reviewer
 description: Quick reviewer for ticket-driven development — verifies a low-risk unguided ticket diff against its acceptance criteria on the fast tier, escalating anything beyond its depth.
 model: zai/glm-5.3-flash:high
+thinking: high
 tools: read,grep,glob,bash
 read-summarize: false
 ---

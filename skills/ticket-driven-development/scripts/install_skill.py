@@ -177,11 +177,21 @@ def render_zcode_agent(agent: dict[str, object], model: str | None) -> str:
     if not name:
         raise RuntimeError("agent file is missing required frontmatter: name")
     omp_model = frontmatter.get("model", "")
-    tier = omp_model.rsplit(":", 1)[-1].lower() if ":" in omp_model else ""
-    # ZCode has no medium variant; high keeps a junior able to notice a disproved plan step.
-    level = "high" if tier in ("", "medium") else tier
+    explicit = str(
+        frontmatter.get("thinking", frontmatter.get("thinking-level", ""))
+    ).strip().lower()
+    if explicit:
+        # An explicit thinking pin is authoritative; the model-suffix tier
+        # only applies when no thinking field is present.
+        level = "high" if explicit == "medium" else explicit
+    else:
+        tier = omp_model.rsplit(":", 1)[-1].lower() if ":" in omp_model else ""
+        # ZCode has no medium variant; high keeps a junior able to notice a disproved plan step.
+        level = "high" if tier in ("", "medium") else tier
     if level not in ZCODE_THOUGHT_LEVELS:
-        raise RuntimeError(f"cannot map omp model tier to a ZCode thought level: {omp_model}")
+        raise RuntimeError(
+            f"cannot map omp thinking tier to a ZCode thought level: {omp_model!r} thinking={explicit!r}"
+        )
     tools = [
         OMP_TO_ZCODE_TOOLS[entry.strip()]
         for entry in frontmatter.get("tools", "").split(",")

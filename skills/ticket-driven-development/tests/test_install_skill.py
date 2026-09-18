@@ -70,6 +70,7 @@ class AgentMarkdownTests(unittest.TestCase):
             "---\n"
             "name: tdd-senior\n"
             "model: zai/glm-5.3:high\n"
+            "thinking: high\n"
             "autoloadSkills:\n"
             "  - i-have-adhd\n"
             "---\n"
@@ -86,6 +87,7 @@ class AgentMarkdownTests(unittest.TestCase):
             "name: tdd-senior\n"
             "description: d\n"
             "model: zai/glm-5.3:high\n"
+            "thinking: high\n"
             "tools: read,grep\n"
             "read-summarize: false\n"
             "autoloadSkills:\n"
@@ -98,6 +100,31 @@ class AgentMarkdownTests(unittest.TestCase):
         self.assertIn("thoughtLevel: high", rendered)
         self.assertNotIn("read-summarize", rendered)
         self.assertNotIn("autoloadSkills", rendered)
+
+    def test_explicit_thinking_overrides_model_suffix(self) -> None:
+        text = (
+            "---\n"
+            "name: tdd-senior\n"
+            "description: d\n"
+            "model: zai/glm-5.3:high\n"
+            "thinking: low\n"
+            "---\n"
+            "body\n"
+        )
+        rendered = install_skill.render_zcode_agent(install_skill.parse_agent_markdown(text), None)
+        self.assertIn("thoughtLevel: low", rendered)
+
+    def test_model_suffix_used_when_no_thinking_field(self) -> None:
+        text = (
+            "---\n"
+            "name: tdd-senior\n"
+            "description: d\n"
+            "model: zai/glm-5.3:max\n"
+            "---\n"
+            "body\n"
+        )
+        rendered = install_skill.render_zcode_agent(install_skill.parse_agent_markdown(text), None)
+        self.assertIn("thoughtLevel: max", rendered)
 
 
 class InstallerEndToEndTests(unittest.TestCase):
@@ -209,7 +236,7 @@ class InstallerEndToEndTests(unittest.TestCase):
             text = junior.read_text(encoding="utf-8")
             self.assertIn("name: tdd-junior", text)
             self.assertIn("model: custom:prov%3Aider:GLM-5.3-Flash", text)
-            # omp's flash:medium tier maps to high — ZCode has no medium variant.
+            # The explicit thinking pin carries over as thoughtLevel.
             self.assertIn("thoughtLevel: high", text)
             # Tool names translate; omp-only tools (lsp, ast_edit) are dropped.
             self.assertIn("tools: [Read, Write, Edit, Bash, Grep, Glob]", text)

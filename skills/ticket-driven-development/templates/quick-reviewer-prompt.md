@@ -10,6 +10,7 @@ Quick review of one low-risk, direct-dispatch ticket. Remain read-only, never de
 - Specification or excerpt: `{{spec_pointer}}`
 - Dependency outputs: `{{dependency_outputs}}`
 - Repository instructions: `{{repository_instructions}}`
+- Guidance (paired tickets only; context, not a plan judgment): {{guidance_pointer}}
 - Review output: `{{review_output_path}}`
 
 ## Review method

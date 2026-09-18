@@ -36,6 +36,8 @@ Before starting a wave:
 
 Dispatch the critical path first: start the longest or highest-risk ready ticket before its siblings, so its review overlaps their implementation and its dependents unblock earliest.
 
+Speculative guidance pre-pinning: while a wave's implementers are in flight, the controller may batch the guides of their known dependents concurrently, pinned to the current integration head as the expected base; record each dispatch in the ledger as speculative with its expected base. The cap is the disjoint-domain rule: pre-pin only when the in-flight blocker's conflict domain is disjoint with the dependent's conflict domain, bounding wasted senior-model tokens — a blocker that cannot touch the guidance's named files cannot force a regeneration. At junior launch, `scripts/guidance_drift.py` adjudicates the moved base: immaterial drift re-pins the plan with `--patch-base`; material drift regenerates the guidance once at the senior tier. Never dispatch an implementer against unadjudicated speculative guidance.
+
 Budget the isolation cost honestly: in dependency-heavy monorepos (gitignored `node_modules`, virtualenvs, build caches) every child worktree needs its own dependency install before it can build or test. With a warm package-manager store this is minutes per workspace, not seconds. When parallel worktrees are right but installs are costly, point each child install at the package manager's shared store — pnpm, cargo, uv, and poetry all reuse a global cache by default or with one setting — so children pay for cold files only. When installs remain expensive, prefer sequential waves in the single integration worktree (one install, reused) over parallel child worktrees — the no-concurrent-writers invariant is preserved either way, and critical-path time often wins sequential. For shared *services* (databases), apply the isolation ladder in `references/verification-policy.md` — a per-workspace namespace before a duplicate instance before suite seats — instead of duplicating containers by default.
 
 The controller owns scheduling and state. Workers must not spawn helpers, modify ticket files, edit run state, or integrate sibling work.
@@ -54,6 +56,17 @@ Batch collection applies to every completed worker (SKILL.md workflow step 9): r
 Do not launch a merger agent for a clean Git operation. If Git reports a conflict, abort the automatic operation, preserve both sides, save the conflict evidence, and use `templates/conflict-resolver-prompt.md` for one narrow resolver.
 
 Smoke-check each integration per its risk tier — eliding the run only when the worker-verified and integration tree hashes are equal (rule in `references/verification-policy.md`) — then recompute the frontier immediately: a ticket's dependents are gated by that ticket's own checkpoint, never by a sibling still under review. Only high-risk runs keep a wave-wide smoke barrier before further dispatch. Newly unblocked tickets must start from the updated integration branch, never from a sibling branch. Independent ticket reviews are read-only and conflict-free: dispatch them as one parallel batch rather than one at a time.
+
+## Dispatch a fix wave
+
+Final-gate fix requests dispatch under the same frontier discipline as implementation. The default is one consolidated fix wave in the integration worktree: a fix is usually minutes of work, and parallel machinery costs a child workspace per fix.
+
+Go parallel only when both hold:
+
+- At least two fix requests have disjoint conflict domains, classified from each finding's target paths — not from the tickets' domains: two disjoint tickets can produce fix requests touching one shared file.
+- The measured child-workspace provisioning cost is smaller than the expected serial fix time; use the recorded duration of a prior fix round when one exists, otherwise stay consolidated.
+
+Before any fix dispatch, true up durable state: run `scripts/reconcile_run.py --state <run-dir>/state.json --apply` so the recorded `integration.head_sha` equals the delivered head — fix commits landing around a stale recorded head are state drift a later resume pays for. Parallel fixes run in child worktrees based on the delivered head, one bounded brief and report path per fix worker, worker and workspace metadata recorded before output is trusted. Integrate each fix with deterministic Git, check elision per fix, and batch the scoped re-reviews as one parallel read-only batch at each ticket's review tier. The two-round repair cap is unchanged.
 
 ## Stop conditions
 

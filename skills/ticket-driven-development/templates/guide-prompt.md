@@ -14,6 +14,10 @@ Plan exactly one ticket for a junior implementer who will execute the plan step 
 - Repository instructions: `{{repository_instructions}}`
 - Shared constraints: `{{shared_constraints}}`
 
+## Code locator
+
+{{code_locator}}
+
 ## Why this document matters
 
 The junior implementer runs on a fast, inexpensive model with no conversation history and a small context window. It will do exactly what the plan says — and roughly only what the plan says. Vague guidance is executed vaguely, a missing step is an unmade change, and an unverifiable step is a bug the junior cannot detect. This plan carries the senior judgment the junior's model tier cannot supply, so it must be specific enough to execute without guessing.
@@ -22,7 +26,7 @@ The junior implementer runs on a fast, inexpensive model with no conversation hi
 
 1. Read `{{adhd_skill_path}}` first and shape the guidance document by its rules: lead with the first action, number the steps, one bounded action per step, no tangents, concrete paths and commands, lists capped and ranked. Those rules were written for a reader with a small working memory; the junior implementer has the same constraint.
 2. Read the full ticket. Then read the actual code at the base: every file the ticket names or implies, the tests that pin the behavior being changed, and the interface notes of integrated blockers. A step you have not verified against the code is a guess, and the junior will execute guesses faithfully.
-3. When the assignment's repository instructions name a code-location tool (CodeGraph's `codegraph explore`, an LSP, a code map), use it before grep/find to locate the code and call paths it returns; a crawl re-derives what one query answers.
+3. When the Code locator section names a tool, use it before grep/find to locate the code and the call paths it returns — a crawl re-derives what one query answers.
 4. Ground every step in repository evidence: exact file paths, symbol names, the approach per file, and the reason wherever it is not obvious from the code.
 5. Cover all of: ordered implementation steps; a test plan with commands and what each asserts — focused and component checks only, each with a time budget, because the full suite is the controller's checkpoint and never a plan step; the interfaces this ticket consumes from its blockers; pitfalls you found in the code with their avoidances; and a restated out-of-scope boundary.
 6. Map every acceptance checkbox in the ticket to the steps and test that satisfy it, in the Criteria coverage section. A criterion no step covers means the plan is incomplete — or the criterion is genuinely independent work, which is the `NEEDS_SPLIT` signal, not a plan gap to hand-wave.

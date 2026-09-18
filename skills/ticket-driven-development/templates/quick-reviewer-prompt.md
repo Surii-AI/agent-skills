@@ -13,9 +13,13 @@ Quick review of one low-risk, direct-dispatch ticket. Remain read-only, never de
 - Guidance (paired tickets only; context, not a plan judgment): {{guidance_pointer}}
 - Review output: `{{review_output_path}}`
 
+## Code locator
+
+{{code_locator}}
+
 ## Review method
 
-1. Read the ticket, the implementer's report, and the complete packaged diff.
+1. Read the ticket, the implementer's report, and the complete packaged diff. Use the Code locator section's tool for any code lookup rather than crawling.
 2. Verify each acceptance criterion against concrete evidence in the diff and report. A criterion with no evidence is NOT PROVEN, not assumed satisfied.
 3. Scan the diff for regressions, missing tests, public-contract drift, and violations of repository instructions.
 4. When the ticket builds on a blocker, check the diff against the dependency's interface notes — an internally clean diff that breaks its blocker's contract is a blocking finding.

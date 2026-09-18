@@ -73,9 +73,26 @@ Include the entire current ticket. Add only:
 | Other tickets | Include only a ticket whose public contract directly binds the current work. |
 | Repository instructions | Include every instruction file scoped to the paths the worker may touch. |
 | Code context | Let the worker inspect relevant code from its workspace; provide a code map only when discovery would be unusually expensive. |
-| Code location | When preflight found a code-location tool, include the repository's locator rule so the worker queries it before crawling. |
+| Code location | When preflight found a code-location tool, render the recorded locator as the brief's `code_locator` value — the block specified below; a worker that greps what one query answers re-derives the index's work. |
 | Prior conversation | Do not pass it. Persist durable decisions as rulings, ADRs, or run context. |
 
 Tickets often cite specification artifacts inline — "§22", "ADR-9", "P12", a table row — without naming the document they belong to. Resolve those citations to concrete file paths (plus section anchors when the file is large) before dispatch: a worker that receives "§22" without knowing which document holds section 22 cannot verify its own contract and will guess. When a citation cannot be resolved to a file in the repository, treat it as missing context for the controller to clarify, not something for the worker to invent.
+
+### Code locator block
+
+When preflight found a code-location tool, every knowledge-work brief — guide, implementer, reviewer, quick reviewer, final review — carries it as the `code_locator` value of its Code locator section, so `render_brief.py` enforces its presence exactly like every assignment field. For a CodeGraph index (discovered and synced at preflight, per `references/verification-policy.md`), the block is:
+
+```text
+CodeGraph is installed (`.codegraph/`). Locate code through it before grep/find:
+- `codegraph explore "<symbol names or question>"` returns the relevant symbols' verbatim source plus the call paths between them, including dynamic-dispatch hops grep cannot follow. Treat returned source as already-read — never re-grep or re-read what it returned.
+- `codegraph callers <sym>` / `callees <sym>` / `impact <sym>` for call neighborhoods and edit blast radius; `codegraph affected [files…]` for the tests a change touches.
+- Boundary: the index holds symbols and edges, not text — every occurrence of a string literal, config value, or comment still belongs to grep.
+- Quote the query as one string; unquoted punctuation breaks the command.
+- A pending-sync banner naming files means the index lags those files — trust freshly edited files over the index there.
+- This workspace holds no `.codegraph/`: add `-p <recorded indexed checkout>`. (omit when the workspace is the indexed checkout)
+- Deeper usage: `<resolved codegraph-cli skill path>`. (omit when the skill did not resolve)
+```
+
+When no locator was found, render `None — locate code with grep/find and file reads.` so the section never renders empty. A repository whose instruction files state their own locator rule is authoritative over this block — render that rule instead; for any other locator (an LSP, a code map), the block is the repository's stated rule for that tool. The conflict resolver carries no locator: its assignment is a packaged diff, not code discovery.
 
 Target an initial package below about 20,000 tokens when the environment reports usage. Treat 40,000 as a warning: prepare a smaller excerpt, a code map, or split the ticket. If the ticket still requires broad unrelated exploration, stop with `NEEDS_SPLIT` rather than allowing unbounded context growth.

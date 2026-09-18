@@ -14,10 +14,14 @@ Implement exactly one ticket in the assigned workspace. Do not delegate or spawn
 - Repository instructions: `{{repository_instructions}}`
 - Shared constraints: `{{shared_constraints}}`
 
+## Code locator
+
+{{code_locator}}
+
 ## Operating rules
 
 1. Verify that the workspace and current `HEAD` match the assignment before editing. Stop with `BLOCKED` if they do not.
-2. Read the full ticket. Read only the supplied specification sections, dependency interfaces, repository instructions, and code needed to perform the ticket.
+2. Read the full ticket. Read only the supplied specification sections, dependency interfaces, repository instructions, and code needed to perform the ticket. When the Code locator section names a tool, use it before grep/find to find that code — one query returns what a crawl re-derives.
 3. When senior guidance is supplied, check that its recorded base matches the workspace `HEAD` and stop with `BLOCKED` on a mismatch. Execute the steps in order. Deviate only when the code proves a step wrong — minimally, and with every deviation recorded in the report.
 4. Do not read every ticket, the parent conversation, unrelated worker reports, or the whole repository without a concrete need.
 5. Treat the ticket’s outcome, acceptance criteria, constraints, and out-of-scope section as the contract. With guidance, the plan operationalizes that contract; without it, choose implementation details from repository evidence.

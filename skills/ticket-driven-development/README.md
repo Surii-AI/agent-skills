@@ -37,6 +37,7 @@ The skill is stack-agnostic — checkpoints are discovered from the repository's
 - **Python 3.9+** on `PATH` as `python3` — the bundled scripts use only the standard library.
 - **Local Markdown tickets** in the accepted format, with English status keywords (`done`, `complete`, …).
 - **The `i-have-adhd` skill** — hard dependency of the guide role; the senior guide shapes every plan by its rules. Unresolvable at preflight, the run stops before dispatch.
+- **Optional:** a code-location tool — when preflight finds a CodeGraph index (`.codegraph/` and the `codegraph` binary on `PATH`), the controller and every knowledge worker locate code through it instead of grep/find crawls, with the `codegraph-cli` skill riding along as a usage pointer when installed. Never a run-stopper; grep/find remain the fallback.
 - **Optional:** a subagent/task API in the host agent for parallel waves and model-tiered pairing; without one, the skill falls back to sequential execution in the controller with all gates intact.
 
 Design and benchmark evidence, from a measured end-to-end run (4-ticket dependency diamond, live subagent workers, per-phase wall-clock timing): 14/14 contract assertions; parallel implement wave and batched review each ~40% faster than serial; tree-hash smoke elision skipped 3 of 4 checkpoint re-runs; `--quiet` state summaries cut controller-facing script output 44× at 4 tickets and 200×+ at 200 (sub-KiB vs 136,588 B per transition). Script-side numbers are reproducible:

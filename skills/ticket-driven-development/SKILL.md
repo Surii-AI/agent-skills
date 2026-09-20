@@ -114,6 +114,15 @@ Classify pairing per the gate in `references/verification-policy.md`: medium- an
 
 Record the chosen wave base. Start every parallel child from that exact integration commit.
 
+Render the dependency graph for the record and the user's orientation:
+
+```bash
+python3 <skill-dir>/scripts/render_graph.py <run-dir>/ticket-index.json \
+  --output <run-dir>/ticket-graph.md
+```
+
+Include the rendered diagram in your report of the ready frontier. This is a plan snapshot, presentation only — it never feeds scheduling (the live frontier is durable state), and a defect the user spots in it (wrong blocker, missing dependency, misjudged risk) is surfaced and resolved through ticket shaping or a user ruling, never by the controller rewriting tickets. Do not re-render per frontier change; render again only for the final report if the delivered shape is worth contrasting with the plan.
+
 ### 8. Dispatch bounded guides and implementers
 
 Paired tickets dispatch a read-only senior guide first. Render `templates/guide-prompt.md` with the `i-have-adhd` skill path resolved at preflight: the guide reads the ticket and the code at the expected base, writes a bounded, repo-grounded plan to `<run-dir>/guidance/<ticket-id>.md`, and returns `PLAN_READY`, `NEEDS_CONTEXT`, `NEEDS_SPLIT`, or `BLOCKED`. Guides are read-only — batch sibling guides concurrently. Guides may also dispatch speculatively: while a wave's implementers are in flight, batch the guides of their known dependents concurrently, pinned to the current integration head as the expected base, and record the dispatch in the ledger as speculative with that expected base. Pre-pin only when the in-flight blocker's conflict domain is disjoint from the dependent's conflict domain — then drift cannot touch the guidance's named files. At junior launch, run `scripts/guidance_drift.py` against the actual base: immaterial drift re-pins with `--patch-base` (the re-pinned Base line is the junior's start SHA, satisfying the success contract); material drift regenerates the guidance once. The guidance is a reading-grounded plan, not a proof: a guide may execute at most one load-bearing snippet — the step whose failure would void the whole plan — in a scratch directory, never the full plan. A guide stop is handled exactly like an implementer stop, at guide prices: the gate exists to catch malformed tickets before a junior burns a workspace on them. On `PLAN_READY`, dispatch the junior implementer with the guidance pointer; when the junior's actual start SHA differs from the guidance base, run `scripts/guidance_drift.py` and regenerate only on material drift — `--patch-base` re-pins a plan that stayed valid.
@@ -184,4 +193,5 @@ A successful run produces:
 | Guidance documents | Bounded and repo-grounded for every paired ticket, pinned to the junior's start SHA, with plan adherence recorded in each implementer report. |
 | Ticket reports and reviews | Provide acceptance evidence through file pointers. |
 | Final diff package | Covers the complete base-to-head change. |
+| Ticket graph (`ticket-graph.md`) | Plan-snapshot Mermaid DAG rendered from the ticket index at frontier time; presentation only, never a scheduling input. |
 | Verification record | Lists exact commands and truthful outcomes. |

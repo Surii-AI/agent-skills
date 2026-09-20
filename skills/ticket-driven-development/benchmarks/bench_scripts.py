@@ -79,6 +79,17 @@ def main() -> int:
                 "",
             ))
 
+            start = time.perf_counter()
+            result = sh(["python3", str(SCRIPTS / "render_graph.py"),
+                         str(root / f"index-{n}.json"),
+                         "--output", str(root / f"graph-{n}.md")])
+            rows.append((
+                f"render_graph.py N={n}",
+                f"{(time.perf_counter() - start) * 1000:.0f} ms",
+                f"stdout {len(result.stdout)} B · "
+                f"graph {(root / f'graph-{n}.md').stat().st_size / 1024:.0f} KiB",
+            ))
+
         # Git-backed operations at N=200: the controller-facing cost profile
         # of a large run (state init, transitions, reconciliation).
         repo = root / "repo"

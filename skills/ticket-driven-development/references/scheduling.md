@@ -12,6 +12,8 @@ A ticket is dependency-ready only after all blockers have been integrated and th
 
 Treat these as conflict domains: files and directories; public interfaces; schemas and migrations; shared persistence; dependency manifests and lockfiles; generated artifacts; build and release configuration; cross-cutting test fixtures; global styles; and runtime configuration.
 
+The `<run-dir>/ticket-graph.md` Mermaid DAG rendered at frontier time (SKILL.md step 7) is the plan snapshot for the user's orientation, not a scheduling input: dispatch decisions come from durable state and the conflict-domain analysis above, never from the diagram.
+
 | Ready-frontier condition | Action |
 |---|---|
 | One ticket is ready | Run one fresh worker in the integration worktree. |

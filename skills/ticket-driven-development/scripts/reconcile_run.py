@@ -15,6 +15,13 @@ from typing import Any, Sequence
 
 from run_state import DEPENDENCY_SATISFIED
 
+# Statuses that claim the ticket produced implementation work. Only these may
+# take the branch-tip reachability fallback: a ticket that never implemented
+# (pending, ready, running) or stopped (blocked, failed, skipped) has no work
+# for the tip to prove, and an unmoved branch pinned at the base is trivially
+# reachable from itself.
+IMPLEMENT_PROGRESS_STATUSES = {"implemented", "review-required", "repair", "approved"}
+
 # Regenerable build artifacts never count as "uncommitted changes": any worktree
 # that has run tests once would otherwise read as dirty forever, blocking
 # cleanup and firing preserve-worktree recommendations for every ticket.
@@ -175,6 +182,28 @@ def reconcile(state_path: Path, apply: bool) -> dict[str, Any]:
 
     ticket_reports: dict[str, Any] = {}
     changes: list[str] = []
+    run_base = state.get("base_sha")
+
+    def integration_evidence_for(status: str | None, branch_sha: str | None, *explicit: str | None) -> str | None:
+        """First sha that proves integration, or None.
+
+        The run's base commit is trivially reachable from the integration
+        branch and proves nothing landed, so it is never evidence — state that
+        pins a ticket's head/integrated sha to the base (as init-time records
+        do) must not read as integrated. The branch-tip fallback additionally
+        requires a status that claims implementation work.
+        """
+
+        def real(sha: str | None) -> str | None:
+            if not sha or sha == run_base or not commit_exists(repo, sha):
+                return None
+            return sha if is_ancestor(repo, sha, integration_head) else None
+
+        found = next((s for s in explicit if real(s)), None)
+        if found:
+            return found
+        return real(branch_sha) if status in IMPLEMENT_PROGRESS_STATUSES else None
+
     for ticket_id, ticket in state.get("tickets", {}).items():
         branch_sha = branch_tip(repo, ticket.get("branch"))
         recorded_head = ticket.get("head_sha")
@@ -182,18 +211,8 @@ def reconcile(state_path: Path, apply: bool) -> dict[str, Any]:
         effective_head = recorded_head if commit_exists(repo, recorded_head) else branch_sha
         recorded_worktree = ticket.get("worktree")
         worktree_present = bool(recorded_worktree and str(Path(recorded_worktree).resolve()) in known_worktrees)
-        # Cherry-pick re-commits parallel-wave work under new SHAs, so the
-        # worker's head can fail the ancestor test even though the work is fully
-        # integrated. Any recorded commit reachable from the integration branch
-        # proves integration; prefer the explicit integration SHA, then the
-        # worker head, then the branch tip.
-        integration_evidence = next(
-            (
-                sha
-                for sha in (integrated_sha, recorded_head, branch_sha)
-                if sha and commit_exists(repo, sha) and is_ancestor(repo, sha, integration_head)
-            ),
-            None,
+        integration_evidence = integration_evidence_for(
+            ticket.get("status"), branch_sha, integrated_sha, recorded_head
         )
         integrated = integration_evidence is not None
         dirty = is_dirty(recorded_worktree) if worktree_present else None

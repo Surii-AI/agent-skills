@@ -17,7 +17,7 @@ try:
 finally:
     pass
 
-AGENT_NAMES = ["tdd-junior.md", "tdd-quick-reviewer.md", "tdd-reviewer.md", "tdd-senior.md"]
+AGENT_NAMES = ["tdd-apprentice.md", "tdd-junior.md", "tdd-quick-reviewer.md", "tdd-reviewer.md", "tdd-senior.md"]
 
 
 def make_agents_source(root: Path) -> Path:

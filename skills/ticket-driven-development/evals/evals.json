@@ -45,6 +45,35 @@
         "state-integration-head-matches-delivery-head: state.json's integration.head_sha equals the delivered integration branch head SHA (git rev-parse of the delivery branch), not the fixture base SHA",
         "main-branch-untouched: main HEAD unchanged and no tracked files modified in the user checkout"
       ]
+    },
+    {
+      "id": 3,
+      "prompt": "An approved specification for the 'calc phase' is at SPECS/calc-phase.md in the repository at /home/dev18x/surii/agent-skills/ticket-driven-development-workspace/iteration-6/eval-3-apprentice-mechanical-lane/inputs/repo-with, with its ticket directory at .scratch/calc-phase/issues. Execute the approved tickets end-to-end: deliver the work on a tested integration branch rather than the repository's main branch, and finish with a report stating exactly what changed, where it lives, and what passed.",
+      "expected_output": "All four tickets done: mechanical copy tickets and the artifact-only ticket routed to the apprentice lane with quick reviews recorded; the medium ticket paired guide+junior; everything integrated/verified per its output kind; main untouched; suite passes.",
+      "files": [],
+      "assertions": [
+        "code-tickets-integrated: a non-main branch holds distinct commits for tickets 01, 02, and 03, all reachable from one head",
+        "artifact-ticket-verified-not-committed: state.json shows ticket 04 terminal `verified` (never integrated), and the usage-summary artifact file exists at its assigned path with percent, mean, and the help sentence each covered",
+        "apprentice-lane-dispatched: the ledger records tdd-apprentice as the dispatched implementer for tickets 01, 02, and 04 — a recorded fallback counts only when the agent itself was unavailable in the session, not merely absent from the skill — and never routes medium ticket 03 to the apprentice",
+        "mechanical-tickets-reviewed: tickets 01 and 02 carry review evidence — a quick-review output file, or a recorded oracle review (controller-run deterministic commands with outputs) in the ledger — apprentice work is never its own reviewer",
+        "cli-oracle-matches-spec: at the delivered head, `python3 -m calc mean 1 2 3` prints 2.0 and `python3 -m calc --help` output contains 'Arithmetic helpers on the command line.'",
+        "copy-edits-exact: README.md at the delivered head contains 'command-line' and not 'comandline'",
+        "suite-passes-at-delivery-head: python3 -m unittest discover -s tests passes at the delivered head",
+        "main-branch-untouched: main HEAD equals the fixture base SHA and no tracked file in the user checkout is modified"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "The repository at /home/dev18x/surii/agent-skills/ticket-driven-development-workspace/iteration-6/eval-4-apprentice-doubt-stop/inputs/repo-with has an approved spec at SPECS/calc-phase.md and tickets at .scratch/calc-phase/issues. Execute the approved tickets end-to-end with the usual integration branch, tests, and completion report.",
+      "expected_output": "Ticket 01 names a file that does not exist (calc/legacy.py): the implementer stops with BLOCKED/NEEDS_CONTEXT instead of creating the file or improvising; the run records the stop and completes the healthy medium ticket 02 normally.",
+      "files": [],
+      "assertions": [
+        "phantom-file-not-created: calc/legacy.py does not exist in the delivered branch history, the repo tree, or any leftover worktree",
+        "stop-recorded-not-improvised: state.json or ledger.md records ticket 01 as blocked / needing context / awaiting a ruling — no commit attempts to satisfy its criterion",
+        "healthy-ticket-completes: the delivery branch holds a commit implementing ticket 02's mean subcommand and `python3 -m calc mean 1 2 3` prints 2.0",
+        "suite-passes-at-delivery-head: python3 -m unittest discover -s tests passes at the delivered head",
+        "main-branch-untouched: main HEAD equals the fixture base SHA and no tracked file is modified"
+      ]
     }
   ]
 }

@@ -20,13 +20,25 @@ Pairing splits judgment from execution: the senior guide and the plan-aware revi
 
 | Risk | Treatment |
 |---|---|
-| Low | Direct dispatch: one implementer on the default tier, existing flow unchanged. |
+| Low | Direct dispatch: one implementer, existing flow unchanged. A strictly mechanical low-risk ticket or an artifact-only ticket routes to the apprentice (`templates/apprentice-prompt.md`, agent `tdd-apprentice`) per the Apprentice lane below. |
 | Medium | Senior guide first (`templates/guide-prompt.md`), then a junior implementer executing the guidance, then a quick review on the fast tier with the guidance as an input pointer. |
 | High | Senior guide first (`templates/guide-prompt.md`), then a junior implementer executing the guidance, then one plan-aware review. |
 
-A pairing override the user declared at invocation is authoritative in either direction. Review tier follows risk, not treatment: high-risk tickets get the full plan-aware review on the strongest available tier; medium-risk tickets get a quick review on the fast tier (`templates/quick-reviewer-prompt.md`, agent `tdd-quick-reviewer`) with the guidance as an input pointer; direct-dispatch (unguided) tickets get a quick review unless the strict skip rule holds. A review-tier or pairing override declared at invocation is authoritative in either direction. Tickets whose entire output is unversioned artifacts skip the pair — there is no implementation to plan. Record the pairing decision for every ticket in the ledger before dispatch.
+A pairing override the user declared at invocation is authoritative in either direction. Review tier follows risk, not treatment: high-risk tickets get the full plan-aware review on the strongest available tier; medium-risk tickets get a quick review on the fast tier (`templates/quick-reviewer-prompt.md`, agent `tdd-quick-reviewer`) with the guidance as an input pointer; direct-dispatch (unguided) tickets get a quick review unless the strict skip rule holds (apprentice-implemented tickets never take the skip — see Apprentice lane). A review-tier or pairing override declared at invocation is authoritative in either direction. Tickets whose entire output is unversioned artifacts skip the pair — there is no implementation to plan. Record the pairing decision for every ticket in the ledger before dispatch.
 
 Guide dispatches are read-only: batch the guides of independent ready tickets concurrently, exactly like reviews. Guidance is pinned to the junior's start SHA; a moved base regenerates the plan only on **material drift** — changed paths between the guidance base and the actual base that touch the guidance's named files or the ticket's conflict domains. `scripts/guidance_drift.py` decides and `--patch-base` re-pins a still-valid plan; regenerating on every base move re-buys the senior model's whole investigation each time the integration head advances, which per-ticket pipelining makes routine. A guide may stop with `NEEDS_CONTEXT`, `NEEDS_SPLIT`, or `BLOCKED` — handle those exactly like implementer stops (`references/recovery.md`), at guide prices instead of implementer prices: the gate exists to catch malformed tickets before a build agent burns a workspace on them.
+
+## Apprentice lane
+
+The apprentice (`tdd-apprentice`) is the pipeline's fastest executor at the lowest thinking tier. Its contract is stop-first: any ambiguity ends the assignment with `BLOCKED` or `NEEDS_CONTEXT` instead of an improvised change. Route a ticket to the apprentice only when every condition holds, and record the routing per ticket in the ledger before dispatch exactly like a pairing decision:
+
+1. The ticket's risk is Low. Unknown, medium, and high risk never route to the apprentice; unclear risk is medium.
+2. The change surface is strictly mechanical: copy or configuration edits, isolated test additions, small local edits with no contract change, or unversioned artifact output. It touches none of the surfaces the strict review skip excludes — no public interface, shared persistence, security, concurrency, build/release behavior, generated contracts, or test infrastructure. Merely located inside a file that contains such a surface is not disqualifying: an edit confined to a string literal, comment, or help text (an argparse description, a log message's wording) changes nothing its consumers can observe and stays lane-eligible — the exclusion is for changes to the interface's contract, not its surrounding prose.
+3. No user pairing or implementer override names a different treatment; a declared override is authoritative in either direction.
+
+Fallback: when the `tdd-apprentice` definition is not installed or the environment cannot dispatch it, eligible tickets dispatch to the junior unchanged — never a run-stopper, and the fallback is recorded in the ledger.
+
+Apprentice work gets an independent quick review by default; the strict low-risk review skip never applies to it. The apprentice's weak self-correction and the same-family quick reviewer share blind spots, so the cheap executor is paid for with a review, not a skipped one. Oracle elision: when every acceptance criterion is decidable by a deterministic command the controller runs itself — an exact content match, an existence-plus-content check, or a CLI output oracle — and the diff touches only files the ticket names, the controller MAY run those commands at collection instead of dispatching a reviewer, recording each command and its output in the ledger as an oracle review; any criterion involving judgment (wording quality, test adequacy, design fit) forces the quick review. The requirements-aware final branch review still covers elided tickets, so independence is preserved at the gate. Blocking findings on apprentice work — from a quick review or a failed oracle check — route the repair to a junior-tier repair worker with the exact findings and current base; the apprentice is never redispatched to repair its own reviewed work — the error profile that produced a finding is the wrong profile to fix it, and the two-round repair cap stays reserved for the junior.
 
 ## Service availability preflight
 
@@ -62,7 +74,7 @@ Skip independent ticket review only when all conditions hold:
 - The change does not affect a public interface, shared persistence, security, concurrency, build/release behavior, generated contracts, or test infrastructure.
 - The diff remains included in the wave review or final branch review.
 
-Record the skip and its reason in the ledger. Ambiguity means review, not skip.
+Record the skip and its reason in the ledger. Ambiguity means review, not skip. These conditions describe a junior-implemented direct dispatch; apprentice-implemented tickets never take the skip — the apprentice lane pays for its cheap executor with a mandatory quick review.
 
 ## Quick review and escalation
 

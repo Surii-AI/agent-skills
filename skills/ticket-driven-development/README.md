@@ -29,6 +29,8 @@ The skill **executes** tickets; it refuses to author them. Ticket format: see `r
 Medium- and high-risk implementation tickets run as a senior/junior pair: a senior guide (strongest available model) reads the ticket and the code, then writes a bounded, repo-grounded plan shaped by the `i-have-adhd` skill; a junior implementer (fastest write-capable model) executes the plan and records every deviation; a risk-tiered review verifies the diff before integration — the full plan-aware review for high-risk pairs, the fast quick review (escalating when a diff is beyond its depth) for medium-risk pairs. Low-risk tickets dispatch directly. A pairing override declared at invocation is authoritative.
 Low-risk tickets dispatch directly and, when they cannot skip review outright, get a quick review from `tdd-quick-reviewer` — the same criterion check on the fast model tier, which escalates to the full reviewer when a diff is beyond its depth.
 
+Strictly mechanical low-risk tickets and artifact-only output dispatch to `tdd-apprentice` — the same fast model family at the lowest thinking tier under a stop-first contract: it blocks on the first doubt rather than improvising. Apprentice work gets a quick review — a controller-run oracle check substitutes only when every criterion is mechanically decidable — and blocking findings repair at the junior tier.
+
 ## Requirements
 
 The skill is stack-agnostic — checkpoints are discovered from the repository's own tooling (CI workflows, package scripts, task runners), never assumed. It needs:

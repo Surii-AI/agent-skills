@@ -18,9 +18,9 @@ This skill reads existing named profiles and configures `task.maxRecursionDepth`
 Verify prerequisites without writing:
 - Require `omp` executable in PATH.
 - Run `omp --profile default config get task.maxRecursionDepth --json`.
+- Treat `OMP_PROFILE` and `PI_PROFILE` as shell-selected defaults, commonly exported by a direnv-loaded `.envrc`. When `--profile` is omitted, `OMP_PROFILE` selects the profile, falling back to `PI_PROFILE`; an explicit `--profile <name>` overrides both. Keep the explicit flag on every configuration read and write. Do not edit `.envrc` or unset or change these variables.
 - If OMP or the key is unavailable, report prerequisite failure and stop.
 - Do not read or modify project settings, credentials, model settings, agent definitions, or unrelated keys.
-
 ### 2. Enumerate Existing Named Profiles
 
 Resolve home directory and config-root from the environment (`HOME`, `PI_CONFIG_DIR`; default `.omp`). Read `<HOME>/<PI_CONFIG_DIR>/profiles` and list immediate child directories as named profiles. A missing directory means there are no named profiles. Do not create a requested-but-missing profile. Do not infer named-profile paths from `PI_CODING_AGENT_DIR`.
@@ -57,3 +57,4 @@ Run the corresponding `config get ... --json` and require the returned `value` t
 ### 8. Report the Result
 
 Return a compact per-profile table with previous, requested, and verified effective values plus status (`unchanged`, `updated`, `already configured`, or `failed`). State that the persisted value applies to subsequent subagent launches and does not restart running subagents. Never print credentials or dump the full config.
+- For each reported profile, include the manual check `omp --profile <name> config get task.maxRecursionDepth --json` with `<name>` replaced by the literal profile name. The explicit flag ensures the check reads the intended profile even when `OMP_PROFILE` or `PI_PROFILE` selects another shell default.

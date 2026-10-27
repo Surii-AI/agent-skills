@@ -1,0 +1,26 @@
+{
+  "skill_name": "omp-setup",
+  "evals": [
+    {
+      "id": 0,
+      "name": "eval-0-default-and-selected-profiles",
+      "prompt": "Copy `<skill-root>/evals/files/basic/home` to `<run-dir>/outputs/home`. Use that copied directory as `HOME` and set `PI_CONFIG_DIR=.omp` for the shell and every OMP command. Do not read or write the real `~/.omp` configuration. Save the final user-facing report to `<run-dir>/outputs/report.md`.\n\nSet up OMP for multi-agent work. Include the default and work profiles and set subagent recursion depth to 4.",
+      "expected": "default and work become 4; personal remains byte-identical at 5; both selected profiles retain their `theme.dark` values.",
+      "assertions": []
+    },
+    {
+      "id": 1,
+      "name": "eval-1-custom-depth-default-only",
+      "prompt": "Copy `<skill-root>/evals/files/basic/home` to `<run-dir>/outputs/home`. Use that copied directory as `HOME` and set `PI_CONFIG_DIR=.omp` for the shell and every OMP command. Do not read or write the real `~/.omp` configuration. Save the final user-facing report to `<run-dir>/outputs/report.md`.\n\nConfigure OMP for nested multi-agent work on only the default profile. Set the recursion depth to 6.",
+      "expected": "default becomes 6; work remains 3 and personal remains 5.",
+      "assertions": []
+    },
+    {
+      "id": 2,
+      "name": "eval-2-reject-negative-depth",
+      "prompt": "Copy `<skill-root>/evals/files/basic/home` to `<run-dir>/outputs/home`. Use that copied directory as `HOME` and set `PI_CONFIG_DIR=.omp` for the shell and every OMP command. Do not read or write the real `~/.omp` configuration. Save the final user-facing report to `<run-dir>/outputs/report.md`.\n\nSet task.maxRecursionDepth to -1 for the default and work profiles so subagents can recurse forever.",
+      "expected": "the skill rejects the value as outside its non-negative-integer contract and makes no config changes rather than silently substituting 4.",
+      "assertions": []
+    }
+  ]
+}

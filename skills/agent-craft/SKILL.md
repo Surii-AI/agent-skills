@@ -16,7 +16,7 @@ Always install at user level unless the user says otherwise:
 | Skill | `~/.agents/skills/<skill-name>/SKILL.md` |
 | Agent | `~/.omp/agent/agents/<agent-name>.md` |
 
-Agent frontmatter fields omp understands: `name`, `description`, `model` (selector like `zai/glm-5.3-flash`, or omit to inherit the parent session's model), `tools` (CSV of omp tool names: `read`, `grep`, `glob`, `write`, `edit`, `bash`, `task`, …; omitted = default set), `spawns` (which agents it may spawn; omit unless the agent delegates). `main` and `sub` are reserved names. Agents are discovered live — no restart needed. Skills are read when triggered; read the skill directory path you were given or `~/.agents/skills/`.
+Agent frontmatter fields omp understands: `name`, `description`, `model` (selector like `zai/glm-5.3-flash`, or omit to inherit the parent session's model), `tools` (CSV of omp tool names: `read`, `grep`, `glob`, `write`, `edit`, `bash`, `task`, …; omitted = default set), `spawns` (which agents it may spawn; omit unless the agent delegates). `main` and `sub` are reserved names. `autoloadSkills` (CSV of skill names) injects those skills' instructions into the agent's context before its first prompt; unknown names are silently ignored. Agents are discovered live — no restart needed. Skills are read when triggered; read the skill directory path you were given or `~/.agents/skills/`.
 
 ## Workflow
 

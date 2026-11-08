@@ -41,6 +41,7 @@ name: <agent-name>
 description: <One sentence: the job + when to delegate here.>
 model: <selector like "zai/glm-5.3-flash", or omit to inherit parent's model>
 tools: <CSV like "read, grep, glob, write, edit, bash", or omit for default set>
+autoloadSkills: <CSV of skill names to preload into this agent's context, or omit>
 ---
 
 You are <persona name>. Your one job: <job>.

@@ -1,0 +1,89 @@
+{
+  "expectations": [
+    {
+      "text": "Run read the fixture files before producing output",
+      "passed": true,
+      "evidence": "Transcript history://ws-e3-skill shows reads of input-files/cc-src/SKILL.md (ok · 25 lines) and input-files/cc-src/agent.md (ok · 20 lines) before any writes. (It first probed input-files/SKILL.md — not found — then globbed and hit the correct cc-src/ paths.) Also read the agent-craft SKILL.md and pair-templates.md before writing."
+    },
+    {
+      "text": "Outputs use omp-native locations, no .claude/agents",
+      "passed": true,
+      "evidence": "Outputs tree contains exactly .agents/skills/dr-eggbot/SKILL.md and .omp/agent/agents/dr-eggbot.md under the fake HOME root; `grep -rn '\\.claude'` over with_skill/outputs returns zero hits. Body text references only ~/.agents/skills/<name>/SKILL.md and ~/.omp/agent/agents/<name>.md; 'claude' appears only as instructional porting guidance ('port this claude code skill/subagent to omp'), never as a path."
+    },
+    {
+      "text": "Agent frontmatter omp-valid (name, description; translated tools)",
+      "passed": true,
+      "evidence": "dr-eggbot.md frontmatter is `name: dr-eggbot`, `description: Delegate when the user wants to design, create, port, or refine a focused assistant role as an omp skill+agent pair.`, `tools: read, grep, glob, write, edit` — exact lowercase translation of the fixture's Read, Grep, Glob, Write, Edit; no model line, no invented/unsupported fields."
+    },
+    {
+      "text": "Pair-creation job preserved",
+      "passed": true,
+      "evidence": "Agent body: 'Your one job: designing high-quality focused assistant roles and creating them yourself as omp skill+agent pairs — ~/.agents/skills/<name>/SKILL.md + ~/.omp/agent/agents/<name>.md'. The skill side upgrades the fixture's single-file job to full pair-creation: it interviews, then delegates via the task tool to the dr-eggbot agent with the omp install contract spelled out in `context`, assignment in `task`, and openness in `solutionSpace`, plus wire-up steps (which agent to spawn, context vs task, done-looks-like)."
+    },
+    {
+      "text": "Mad-scientist lowercase voice preserved",
+      "passed": true,
+      "evidence": "Skill body is short lowercase with lab metaphors: 'this skill owns the conversation: it interviews the user... you gather specimens; it grows them', 'never hand the lab a half-guessed job'. Agent body keeps 'Voice: casual, a little mad-scientist, short lowercase' and adds 'never write \"model: inherit\", that's claude-speak'. Fixture staples preserved (poteto-mode bar, anti-templates, bias-to-act)."
+    },
+    {
+      "text": "No verbatim 'model: inherit' mishandling",
+      "passed": true,
+      "evidence": "Neither output file's frontmatter contains a model line. The only 'model: inherit' literals are explicit teaching warnings, not copied values: SKILL.md line 22 'drop `model: inherit` — in omp, omitting model already inherits. never paste it verbatim.' and agent body 'never write \"model: inherit\", that's claude-speak'. Correct omp semantics (omission = inherit) stated in both files."
+    }
+  ],
+  "summary": {
+    "passed": 6,
+    "failed": 0,
+    "total": 6,
+    "pass_rate": 1.0
+  },
+  "timing": {
+    "executor_duration_seconds": 95.0,
+    "grader_duration_seconds": null,
+    "total_duration_seconds": 95.0
+  },
+  "claims": [
+    {
+      "claim": "No `.claude` paths remain in outputs (only instructional claude-code porting mentions)",
+      "type": "factual",
+      "verified": true,
+      "evidence": "grep -rn '\\.claude' with_skill/outputs returns no matches; 'claude' hits are prose guidance only"
+    },
+    {
+      "claim": "Agent frontmatter has no model field; tools translated 1:1 with no leftover tools",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Frontmatter is name/description/tools only; tools list (read, grep, glob, write, edit) matches fixture's five Claude tools exactly"
+    },
+    {
+      "claim": "Skill delegates via the task tool with context/task/solutionSpace spelled out",
+      "type": "factual",
+      "verified": true,
+      "evidence": "SKILL.md '## Delegation' section defines context (omp install contract), task (full assignment), solutionSpace (role-design openness), mirroring the agent-craft pair-templates contract"
+    },
+    {
+      "claim": "agents hot-reload — editable mid-session, no restart",
+      "type": "factual",
+      "verified": false,
+      "evidence": "Unverifiable from outputs alone; consistent with omp behavior (agents are markdown files read per delegation) but not exercised in this run"
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "reason": "All six assertions also pass for the without_skill arm, so the eval does not discriminate skill vs no-skill. Add assertions keyed to skill-specific guidance the base run is unlikely to produce unprompted — e.g. the skill must name its agent partner and spell out the task-tool contract fields (context/task/solutionSpace) from agent-craft's pair templates; the without_skill run mentions delegation but not the full contract."
+      },
+      {
+        "assertion": "Agent frontmatter omp-valid (name, description; translated tools)",
+        "reason": "Loose bar: a stub agent file with just name+description and untranslated 'Read, Grep' would still fail only on one clause. Tighten by asserting the tools list is exactly the lowercase translation of the fixture's tool set and that no Claude-only frontmatter keys (e.g. model: inherit, allowed-tools) leak in."
+      },
+      {
+        "reason": "Both runs (with and without skill) read eval_metadata.json from the workspace before producing output, exposing the grading assertions to the executors. Move assertions out of the fake-HOME tree the run can browse."
+      },
+      {
+        "reason": "The prompt says fixtures are at 'evals/files/cc-src/' but the harness places them at input-files/cc-src/; both runs burned a step on not-found reads before globbing. Align the fixture path in the prompt."
+      }
+    ],
+    "overall": "Outputs are genuinely correct (verified against fixture and omp conventions), but the assertion set is non-discriminating between arms this iteration."
+  }
+}

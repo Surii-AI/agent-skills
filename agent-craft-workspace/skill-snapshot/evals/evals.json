@@ -1,0 +1,61 @@
+{
+  "skill_name": "agent-craft",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Make me an omp setup where a 'commit-scribe' agent writes my git commit messages whenever I say I'm done with changes. I want a skill that catches that phrase, gathers anything needed, and hands off to the agent. I use zai/glm-5.3-flash and I hate emoji in commit messages.",
+      "expected_output": "A SKILL.md in ~/.agents/skills/commit-scribe/ that triggers on 'done with changes' style phrases and delegates via the task tool, plus ~/.omp/agent/agents/commit-scribe.md with omp frontmatter (name, description, model zai/glm-5.3-flash, restricted tools), wired together, no emoji.",
+      "files": [],
+      "assertions": [
+        "Skill at home/.agents/skills/<name>/SKILL.md with valid frontmatter",
+        "Agent at home/.omp/agent/agents/commit-scribe.md with omp frontmatter",
+        "Agent model is zai/glm-5.3-flash",
+        "Skill delegates to the agent via the task tool by name",
+        "Anti-emoji requirement encoded",
+        "No Claude-Code-only frontmatter / tool casing",
+        "Nothing written outside the outputs tree"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "i keep needing someone to deep-dive random npm packages for me before i adopt them — license, maintenance, last release, red flags. build me whatever skill/agent thing handles that in omp, user level",
+      "expected_output": "A skill+agent pair for npm package due diligence: skill triggers on 'should i use package X' style asks, agent (e.g. pkg-scout) in ~/.omp/agent/agents/ with web/read tools, one job, explicit anti-jobs.",
+      "files": [],
+      "assertions": [
+        "Both skill and agent created (a pair)",
+        "Skill covers license, maintenance, last release, red flags",
+        "Agent tools are omp-appropriate (web_search/read), no leftovers",
+        "Agent has one-job statement and anti-jobs",
+        "Skill description is pushy/trigger-rich",
+        "Skill spells out the task-tool delegation contract"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "I ported this from Claude Code — it's a skill+agent pair called dr-eggbot. Port it to omp: the files are in evals/files/cc-src/ (relative to the skill root). I want the same mad-scientist vibe but the artifacts should be omp-native (skill in ~/.agents/skills, agent in ~/.omp/agent/agents) and it should create skill+agent pairs itself.",
+      "expected_output": "Port of dr-eggbot to omp paths and omp frontmatter, pair creation behavior preserved, voice preserved. The delegating run must first read evals/files/cc-src/SKILL.md and evals/files/cc-src/agent.md.",
+      "files": ["evals/files/cc-src/SKILL.md", "evals/files/cc-src/agent.md"],
+      "assertions": [
+        "Run read the fixture files before producing output",
+        "Outputs use omp-native locations, no .claude/agents",
+        "Agent frontmatter omp-valid (name, description; translated tools)",
+        "Pair-creation job preserved",
+        "Mad-scientist lowercase voice preserved",
+        "No verbatim 'model: inherit' mishandling"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "make me an omp agent pair — a 'repo-triage' thing. the agent should come preloaded with the omp-setup skill so it knows omp config conventions without me explaining them every time. user level install.",
+      "expected_output": "A skill+agent pair for repo triage where the agent frontmatter includes autoloadSkills: omp-setup, skill triggers on triage-style asks, both files in omp-native user-level locations.",
+      "files": [],
+      "assertions": [
+        "Both skill and agent created (a pair)",
+        "Agent frontmatter includes autoloadSkills naming omp-setup",
+        "Agent at home/.omp/agent/agents/repo-triage.md, skill at home/.agents/skills/",
+        "Skill spells out the task-tool delegation contract",
+        "Agent has one-job statement and anti-jobs"
+      ]
+    }
+  ]
+}

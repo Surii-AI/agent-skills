@@ -1,0 +1,86 @@
+{
+  "expectations": [
+    {
+      "text": "Run read the fixture files before producing output",
+      "passed": true,
+      "evidence": "Transcript history://ws-e3-base shows reads of input-files/cc-src/SKILL.md (ok · 25 lines) and input-files/cc-src/agent.md (ok · 20 lines) before any writes. (Same wrong-path probe of input-files/SKILL.md first, recovered via glob.) It then researched omp conventions independently: skills/omp-setup/SKILL.md and skills/ticket-driven-development/agents/tdd-apprentice.md as a frontmatter format reference."
+    },
+    {
+      "text": "Outputs use omp-native locations, no .claude/agents",
+      "passed": true,
+      "evidence": "Outputs tree contains exactly .agents/skills/dr-eggbot/SKILL.md and .omp/agent/agents/dr-eggbot.md under the fake HOME root; `grep -rn '\\.claude'` over without_skill/outputs returns zero hits. Body text references only ~/.agents/skills/<name>/SKILL.md and ~/.omp/agent/agents/<name>.md; the word 'claude' does not appear in either output file."
+    },
+    {
+      "text": "Agent frontmatter omp-valid (name, description; translated tools)",
+      "passed": true,
+      "evidence": "dr-eggbot.md frontmatter is `name: dr-eggbot`, `description: Delegate when the user wants to design, create, or refine a focused assistant role (an omp skill, an omp agent, or a full skill+agent pair).`, `tools: read,glob,grep,write,edit` — the fixture's Read/Grep/Glob/Write/Edit translated to omp lowercase CSV; no model line, no unsupported fields."
+    },
+    {
+      "text": "Pair-creation job preserved",
+      "passed": true,
+      "evidence": "Agent body: 'Your one job is designing high-quality focused assistant roles and creating them as omp files (a skill in ~/.agents/skills/<name>/SKILL.md and/or an agent in ~/.omp/agent/agents/<name>.md). Default to the full pair — both files, one creature.' The skill body mirrors this ('Default is the full pair... two halves of one creature') and adds omp wiring guidance including self-delegation via `task` with `agent: dr-eggbot`. Original single-file job correctly generalized to pairs per the prompt."
+    },
+    {
+      "text": "Mad-scientist lowercase voice preserved",
+      "passed": true,
+      "evidence": "Skill body: 'two halves of one creature', 'every creature you build has the same constraint you have', 'the pair has its own twin... same brain, no user channel', Voice section 'casual, a little mad-scientist, short lowercase'. Agent body keeps fixture structure and adds 'your creatures inherit your cage: no user conversation'. Fixture staples (poteto-mode bar, anti-templates, bias-to-act) intact."
+    },
+    {
+      "text": "No verbatim 'model: inherit' mishandling",
+      "passed": true,
+      "evidence": "No 'model: inherit' literal anywhere in without_skill outputs (grep confirms zero hits). The rule is correctly translated in both files: 'no `model` line unless the user picks a model; omitting it runs the agent on the session default' (SKILL.md) and 'omitted means the session default' (agent body). Neither frontmatter carries a model value."
+    }
+  ],
+  "summary": {
+    "passed": 6,
+    "failed": 0,
+    "total": 6,
+    "pass_rate": 1.0
+  },
+  "timing": {
+    "executor_duration_seconds": 180.0,
+    "grader_duration_seconds": null,
+    "total_duration_seconds": 180.0
+  },
+  "claims": [
+    {
+      "claim": "Verified: no `.claude/` paths or `model: inherit` anywhere in outputs",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Independent grep over without_skill/outputs: zero '.claude' hits and zero 'model: inherit' hits"
+    },
+    {
+      "claim": "omp agent frontmatter fields are name, description, model, tools (comma-separated omp tool names), derived from tdd-apprentice.md",
+      "type": "process",
+      "verified": true,
+      "evidence": "Transcript shows the run read skills/ticket-driven-development/agents/tdd-apprentice.md as format reference; the produced frontmatter uses name/description/tools and deliberately omits model"
+    },
+    {
+      "claim": "Default artifact is a full skill+agent pair, single file only on explicit request",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Stated in both output files ('Default to the full pair — both files, one creature' / 'Default is the full pair... A single artifact is fine when the user asks for only one')"
+    },
+    {
+      "claim": "'Cannot ask the user directly' maps to omp delegation verbatim-final-message semantics",
+      "type": "quality",
+      "verified": false,
+      "evidence": "Plausible mapping ('your final message reaches it verbatim') consistent with omp's delegation model, but not exercised in this run — the eval prompt pre-supplied preferences so no question-return path was taken"
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "reason": "This no-skill arm passes all six assertions, matching the with_skill arm 6/6 — none of the assertions measures what the skill adds (pair-template delegation contract, solutionSpace guidance, trigger-phrase-rich descriptions). Add skill-anchored assertions if the eval's purpose is to show lift."
+      },
+      {
+        "reason": "The run browsed eval_metadata.json (assertions) and other skills in the workspace before writing; nothing in the eval prevents the base arm from self-educating to parity. Isolate run workspaces or move assertions out of reach."
+      },
+      {
+        "assertion": "Run read the fixture files before producing output",
+        "reason": "Weak as written: any read of any file under input-files counts, and the prompt's stated fixture path ('evals/files/cc-src/') doesn't match the harness location (input-files/cc-src/), so every run starts with not-found reads. Evidence the port actually used the source (e.g. poteto-mode bar or exact tool set appearing in outputs) would make this discriminating."
+      }
+    ],
+    "overall": "Solid output for a no-skill run; the eval currently cannot tell it apart from the skilled run."
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "expectations": [
+    {
+      "text": "Both skill and agent created (a pair)",
+      "passed": true,
+      "evidence": "Outputs tree contains exactly the two artifacts: .agents/skills/pkg-vetting/SKILL.md and .omp/agent/agents/pkg-scout.md, both with complete frontmatter and body. They are linked as a pair: the skill description ends 'Pairs with the pkg-scout agent.' and its Delegation section says 'Spawn the **pkg-scout** agent via the task tool'."
+    },
+    {
+      "text": "Skill covers license, maintenance, last release, red flags",
+      "passed": true,
+      "evidence": "SKILL.md covers all four with substance: description names 'license, maintenance, last release, red flags'; the Delegation context contract fixes report sections 'license, maintenance, last release, red flags, bottom line'; 'Done looks like' details each — license '(plus conflict risk)', maintenance signals '(commit/release cadence, issue pileup, maintainer bus factor)', 'last release date', and 'an explicit red-flags list (\"none found\" if clean)'. The pkg-scout agent's workflow operationalizes them (registry facts step 1, repo health step 2, red-flag hunt step 3)."
+    },
+    {
+      "text": "Agent tools are omp-appropriate (web_search/read), no leftovers",
+      "passed": true,
+      "evidence": "Agent frontmatter is exactly 'tools: read, web_search'. No write/edit/grep/glob/bash/task leftovers; model line omitted to inherit parent (documented in transcript). Every workflow step is reachable with just those two tools (URL fetches via read, advisory/typosquat hunting via web_search)."
+    },
+    {
+      "text": "Agent has one-job statement and anti-jobs",
+      "passed": true,
+      "evidence": "One-job statement is explicit and first: 'Your one job: vet npm packages before adoption and return an adopt/caution/avoid verdict backed by sources.' Anti-jobs appear as hard boundaries: 'You never talk to the user — missing info goes back to the delegating skill.' and 'If the package name is missing from your task, return the questions to the delegating skill instead of guessing.' Note (does not change verdict): the agent has no explicit never-install/never-write-code anti-job — that prohibition lives only in the skill's delegation context contract ('Research only — never install the package or write adoption code'), not in the agent file itself."
+    },
+    {
+      "text": "Skill description is pushy/trigger-rich",
+      "passed": true,
+      "evidence": "Description packs 9+ concrete typed phrases: \"should i use package X\", \"is X still maintained\", \"when did X last release\", \"vet this npm package\", \"any red flags in X\", \"safe to adopt X?\", \"deep-dive this package before i add it\", \"due diligence on X\", plus catch-all 'names an npm package with \"before i adopt/switch/add\"', and ends 'Pairs with the pkg-scout agent.'"
+    },
+    {
+      "text": "Skill spells out the task-tool delegation contract",
+      "passed": true,
+      "evidence": "SKILL.md '## Delegation' specifies the task-tool spawn field by field: `context` = shared contract (quoted verbatim, incl. 'Research only — never install'), `task` = self-contained assignment ('pkg-scout has no conversation history, so everything it needs goes here'), `solutionSpace` = 'open-ended research — the findings are unknown up front'. Adds batch rule: 'Vetting two packages to compare = ONE spawn with the comparison named in `task`, not two.'"
+    }
+  ],
+  "summary": {
+    "passed": 6,
+    "failed": 0,
+    "total": 6,
+    "pass_rate": 1.0
+  },
+  "timing": {
+    "executor_duration_seconds": 129.0,
+    "total_duration_seconds": 129.0
+  },
+  "claims": [
+    {
+      "claim": "Exactly two files, both inside the outputs tree",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Directory listing of with_skill/outputs shows only .agents/skills/pkg-vetting/SKILL.md and .omp/agent/agents/pkg-scout.md."
+    },
+    {
+      "claim": "Agent frontmatter has name/description/tools: read, web_search, no model line (inherits parent)",
+      "type": "factual",
+      "verified": true,
+      "evidence": "pkg-scout.md frontmatter contains exactly name, description, and 'tools: read, web_search'; no model key."
+    },
+    {
+      "claim": "read + web_search suffice because registry JSON, downloads API, GitHub, and advisory DBs are all URL-fetchable",
+      "type": "factual",
+      "verified": true,
+      "evidence": "All agent workflow steps target URL endpoints (registry.npmjs.org, api.npmjs.org downloads API, GitHub repo health, advisory DBs via web_search); omp read fetches URLs, so the two-tool set is coherent."
+    },
+    {
+      "claim": "Anti-jobs are expressed 'via scope limits and no-user-contact rule'",
+      "type": "quality",
+      "verified": true,
+      "evidence": "Accurate as stated: agent carries 'never talk to the user' and 'return the questions... instead of guessing'. Caveat: no explicit install/code-writing prohibition in the agent body — that constraint is only in the skill's handoff contract."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "Skill covers license, maintenance, last release, red flags",
+        "reason": "Non-discriminating: the eval prompt itself enumerates 'license, maintenance, last release, red flags' verbatim, so echoing the request passes. A depth check (e.g. 'red-flag guidance distinguishes severity tiers' or 'each area names at least one concrete check/data source') would separate thin copies from real methodology."
+      },
+      {
+        "assertion": "Agent tools are omp-appropriate (web_search/read), no leftovers",
+        "reason": "Ambiguous as written: the baseline passed with five tools (read, grep, glob, bash, web_search) because its extras are load-bearing and read-only, while the parenthetical reads like an exhaustive allow-list that the baseline fails. State the rule explicitly (e.g. 'must include web_search+read; must omit write/edit/task; other read-only tools allowed if the body uses them') or the assertion cannot arbitrate between toolset philosophies."
+      },
+      {
+        "reason": "No assertion checks pair linkage/integrity — that the skill delegates to an agent name that actually exists at the user-level path (~/.omp/agent/agents/) and the skill sits at ~/.agents/skills/. A typo'd or dangling agent reference is the most likely real-world failure and went unchecked."
+      },
+      {
+        "reason": "No assertion exercises the delegation contract end-to-end (e.g. dry-run one task-tool spawn using the skill's own field guidance, or verify the agent's output format matches what the skill promises the user). Both runs 'spell out' contracts that were never executed."
+      }
+    ],
+    "overall": "All six assertions are presence checks that both runs satisfy (6/6 here), so the eval cannot discriminate skill-following from competent improvisation — the baseline scored identically without reading agent-craft. Add content-depth, linkage, and one behavioral check."
+  }
+}

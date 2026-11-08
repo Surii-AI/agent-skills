@@ -1,0 +1,102 @@
+{
+  "expectations": [
+    {
+      "text": "Both skill and agent created (a pair)",
+      "passed": true,
+      "evidence": "Outputs tree contains exactly the two artifacts: .agents/skills/pkg-scout/SKILL.md and .omp/agent/agents/pkg-scout.md, both with complete frontmatter and substantial bodies. Linked as a pair: the skill's workflow step 2 says 'Delegate the legwork to the `pkg-scout` agent' with a ready-made task brief, and the agent's autoloadSkills references the same skill with a skill://pkg-scout re-read fallback."
+    },
+    {
+      "text": "Skill covers license, maintenance, last release, red flags",
+      "passed": true,
+      "evidence": "SKILL.md covers all four operationally: license compatibility ('Cite the SPDX id from the latest manifest', HIGH flag for absent/incompatible license, MEDIUM for version-range license flip); maintenance ('Publish timeline', cadence collapse, maintainer turnover/bus factor); last release ('npm view <pkg> time --json', 'No publish in >=18 months'); red flags as a severity-graded catalog (HIGH/MEDIUM/LOW: deprecation, install lifecycle scripts, typosquat shape, hijack patterns like event-stream/ua-parser-js). Report template has dedicated License/Maintenance/Red flags sections."
+    },
+    {
+      "text": "Agent tools are omp-appropriate (web_search/read), no leftovers",
+      "passed": true,
+      "evidence": "Agent frontmatter: 'tools: read, grep, glob, bash, web_search'. No write/edit/task leftovers — the transcript states these are 'deliberately omitted, so it's read-only and cannot spawn children'. The extras are load-bearing, not template residue: bash runs the entire data-source table (npm view, curl registry/downloads/GitHub API, tarball listing without install), grep/glob support the 'read its package.json for the intended version range' context step. web_search and read are both present. Caveat: the assertion's '(web_search/read)' parenthetical reads like an exhaustive pair, so this passes only under the 'no mutating/spawning leftovers' reading — flagged in eval_feedback."
+    },
+    {
+      "text": "Agent has one-job statement and anti-jobs",
+      "passed": true,
+      "evidence": "One-job statement: 'You are **pkg-scout**, a read-only npm package vetting worker... You produce evidence-backed adoption reports and nothing else.' Anti-jobs are an explicit Hard rules block: 'You never edit files, never run `npm install` or `npx`, and never execute code from the package or its tarball.' plus 'never retry-spam' on rate limits, 'A failed fetch or missing field is `[UNKNOWN — reason]`, never a guess', and 'do not block on questions (you have no peer channel)'."
+    },
+    {
+      "text": "Skill description is pushy/trigger-rich",
+      "passed": true,
+      "evidence": "Description opens with the full capability list ('license, maintenance and release cadence, downloads trend, repo health, install-script and supply-chain red flags, alternatives') then enumerates trigger framings: 'Use whenever the user is about to adopt or choose an npm package, asks whether a package is maintained, safe, or trustworthy, asks to vet, audit, deep-dive, or evaluate a dependency, asks about a package's license or maintainers, or compares npm packages as candidates — even if they never say \"vet\" or \"scout\".' The 'even if they never say' clause is maximally pushy."
+    },
+    {
+      "text": "Skill spells out the task-tool delegation contract",
+      "passed": true,
+      "evidence": "Workflow step 2 embeds a concrete task-tool JSON brief showing every field: `context` ('Shared use case and constraints'), `tasks[]` with `agent: \"pkg-scout\"`, `task` ('Vet npm package <name>[@<version>]... Context: <...>'), `solutionSpace`; plus batching rule 'One task per package, all packages in a single batch (parallel)' and a fallback: 'If `pkg-scout` is not in the task tool's agent list... run the procedure below inline instead.'"
+    }
+  ],
+  "summary": {
+    "passed": 6,
+    "failed": 0,
+    "total": 6,
+    "pass_rate": 1.0
+  },
+  "timing": {
+    "executor_duration_seconds": 412.0,
+    "total_duration_seconds": 412.0
+  },
+  "claims": [
+    {
+      "claim": "Both frontmatters parsed with pyYAML (name, description present as strings; agent has tools + autoloadSkills)",
+      "type": "process",
+      "verified": true,
+      "evidence": "Transcript shows a bash pyYAML sanity-check step ran successfully ('ok · 3 lines'); inspection of both files confirms valid YAML frontmatter with string name/description and agent tools + autoloadSkills."
+    },
+    {
+      "claim": "Names avoid collision with the bundled `scout` agent (exact-name, case-sensitive dedup)",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Agent is named pkg-scout, distinct from omp's bundled scout agent."
+    },
+    {
+      "claim": "tools deliberately omit edit/write/task so the agent is read-only and cannot spawn children",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Agent frontmatter lists only read, grep, glob, bash, web_search; no write/edit/task keys."
+    },
+    {
+      "claim": "Report template intentionally exists in both files (agent must be self-contained); keep in sync when editing",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Identical report template appears in SKILL.md ('### Report template') and in the agent body's 'Output contract' section."
+    },
+    {
+      "claim": "autoloadSkills: [pkg-scout] — omp injects the skill into the agent's context before its first prompt",
+      "type": "factual",
+      "verified": false,
+      "evidence": "Unverifiable from outputs: whether omp accepts YAML list syntax for autoloadSkills (the agent-craft template convention is CSV) and whether injection actually occurs cannot be checked without a live harness. Per grading instructions this syntax was explicitly out of scope — no assertion covers autoloadSkills, so it does not affect any verdict; flagged only as a claim."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [
+      "Baseline's suggested checks for Main (omp skill list / agents roster showing pkg-scout) were not run by the executor and remain open"
+    ],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "Skill covers license, maintenance, last release, red flags",
+        "reason": "Non-discriminating: the eval prompt itself enumerates 'license, maintenance, last release, red flags' verbatim, so echoing the request passes. A depth check (e.g. 'red-flag guidance distinguishes severity tiers' or 'each area names at least one concrete check/data source') would separate thin copies from real methodology."
+      },
+      {
+        "assertion": "Agent tools are omp-appropriate (web_search/read), no leftovers",
+        "reason": "Ambiguous as written: the baseline passed with five tools (read, grep, glob, bash, web_search) because its extras are load-bearing and read-only, while the parenthetical reads like an exhaustive allow-list that the baseline fails. State the rule explicitly (e.g. 'must include web_search+read; must omit write/edit/task; other read-only tools allowed if the body uses them') or the assertion cannot arbitrate between toolset philosophies."
+      },
+      {
+        "reason": "No assertion checks pair linkage/integrity — that the skill delegates to an agent name that actually exists at the user-level path (~/.omp/agent/agents/) and the skill sits at ~/.agents/skills/. A typo'd or dangling agent reference (or an autoloadSkills entry omp rejects) is the most likely real-world failure and went unchecked."
+      },
+      {
+        "reason": "No assertion exercises the delegation contract end-to-end (e.g. dry-run one task-tool spawn using the skill's own field guidance, or verify the agent's output format matches what the skill promises the user). Both runs 'spell out' contracts that were never executed."
+      }
+    ],
+    "overall": "All six assertions are presence checks that both runs satisfy (6/6 here), so the eval cannot discriminate skill-following from competent improvisation — the baseline scored identically without reading agent-craft. Add content-depth, linkage, and one behavioral check."
+  }
+}

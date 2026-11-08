@@ -1,0 +1,452 @@
+{
+  "metadata": {
+    "skill_name": "agent-craft",
+    "skill_path": "<path/to/skill>",
+    "executor_model": "<model-name>",
+    "analyzer_model": "<model-name>",
+    "timestamp": "2026-11-08T18:19:46Z",
+    "evals_run": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "runs_per_configuration": 3
+  },
+  "runs": [
+    {
+      "eval_id": 1,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 7,
+        "failed": 0,
+        "total": 7,
+        "time_seconds": 111.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Skill at home/.agents/skills/<name>/SKILL.md with valid frontmatter",
+          "passed": true,
+          "evidence": "File exists at outputs/.agents/skills/commit-scribe/SKILL.md. Frontmatter parses as valid YAML with exactly {name, description}; name is 'commit-scribe' matching the directory, and the description enumerates trigger phrases ('I'm done with changes', 'done with my changes', 'changes are done', 'write the commit message', ...)."
+        },
+        {
+          "text": "Agent at home/.omp/agent/agents/commit-scribe.md with omp frontmatter",
+          "passed": true,
+          "evidence": "File exists at outputs/.omp/agent/agents/commit-scribe.md. Frontmatter parses as valid YAML with keys {name, description, model, tools} \u2014 exactly the documented omp task-agent fields (omp://task-agent-discovery.md: required name/description, optional tools, model), and the path matches the documented user agent root ~/.omp/agent/agents/*.md."
+        },
+        {
+          "text": "Agent model is zai/glm-5.3-flash",
+          "passed": true,
+          "evidence": "YAML-parsed frontmatter model field is exactly 'zai/glm-5.3-flash' (agent file line 3: 'model: zai/glm-5.3-flash')."
+        },
+        {
+          "text": "Skill delegates to the agent via the task tool by name",
+          "passed": true,
+          "evidence": "SKILL.md '## Delegation' section shows an explicit task-tool invocation naming the agent: task(context=\"<shared contract>\", tasks=[{ agent: \"commit-scribe\", task: \"<self-contained assignment>\", solutionSpace: \"...\" }]), with the context carrying the no-emoji/no-push constraints and the return contract. Skill states 'the skill never writes the message itself.'"
+        },
+        {
+          "text": "Anti-emoji requirement encoded",
+          "passed": true,
+          "evidence": "Encoded redundantly on both sides. Skill: delegation context constraint 'zero emoji or decorative unicode in the message', 'Done looks like: ... zero emoji', and anti-jobs 'never lets emoji or decorative unicode into a commit message. non-negotiable, overrides any house style'. Agent: step 3 'hard rule: zero emoji, zero decorative unicode', anti-jobs 'no emoji ever', voice 'no emoji anywhere'."
+        },
+        {
+          "text": "No Claude-Code-only frontmatter / tool casing",
+          "passed": true,
+          "evidence": "Full-text scan of both files found no 'allowed-tools', no Claude/sonnet/opus/haiku strings. Frontmatter uses only omp keys (name/description/model/tools); tools list is lowercase CSV 'read, grep, glob, bash' per omp docs ('tools accepts CSV or array'); delegation uses omp's 'task' tool name."
+        },
+        {
+          "text": "Nothing written outside the outputs tree",
+          "passed": true,
+          "evidence": "Recursive listing of the with_skill run dir shows only timing.json and outputs/ containing exactly the two expected files (.agents/skills/commit-scribe/SKILL.md, .omp/agent/agents/commit-scribe.md). Transcript records writes only to those two outputs paths; no metrics.json, user_notes.md, or stray files."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 6,
+        "failed": 0,
+        "total": 6,
+        "time_seconds": 129.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Both skill and agent created (a pair)",
+          "passed": true,
+          "evidence": "Outputs tree contains exactly the two artifacts: .agents/skills/pkg-vetting/SKILL.md and .omp/agent/agents/pkg-scout.md, both with complete frontmatter and body. They are linked as a pair: the skill description ends 'Pairs with the pkg-scout agent.' and its Delegation section says 'Spawn the **pkg-scout** agent via the task tool'."
+        },
+        {
+          "text": "Skill covers license, maintenance, last release, red flags",
+          "passed": true,
+          "evidence": "SKILL.md covers all four with substance: description names 'license, maintenance, last release, red flags'; the Delegation context contract fixes report sections 'license, maintenance, last release, red flags, bottom line'; 'Done looks like' details each \u2014 license '(plus conflict risk)', maintenance signals '(commit/release cadence, issue pileup, maintainer bus factor)', 'last release date', and 'an explicit red-flags list (\"none found\" if clean)'. The pkg-scout agent's workflow operationalizes them (registry facts step 1, repo health step 2, red-flag hunt step 3)."
+        },
+        {
+          "text": "Agent tools are omp-appropriate (web_search/read), no leftovers",
+          "passed": true,
+          "evidence": "Agent frontmatter is exactly 'tools: read, web_search'. No write/edit/grep/glob/bash/task leftovers; model line omitted to inherit parent (documented in transcript). Every workflow step is reachable with just those two tools (URL fetches via read, advisory/typosquat hunting via web_search)."
+        },
+        {
+          "text": "Agent has one-job statement and anti-jobs",
+          "passed": true,
+          "evidence": "One-job statement is explicit and first: 'Your one job: vet npm packages before adoption and return an adopt/caution/avoid verdict backed by sources.' Anti-jobs appear as hard boundaries: 'You never talk to the user \u2014 missing info goes back to the delegating skill.' and 'If the package name is missing from your task, return the questions to the delegating skill instead of guessing.' Note (does not change verdict): the agent has no explicit never-install/never-write-code anti-job \u2014 that prohibition lives only in the skill's delegation context contract ('Research only \u2014 never install the package or write adoption code'), not in the agent file itself."
+        },
+        {
+          "text": "Skill description is pushy/trigger-rich",
+          "passed": true,
+          "evidence": "Description packs 9+ concrete typed phrases: \"should i use package X\", \"is X still maintained\", \"when did X last release\", \"vet this npm package\", \"any red flags in X\", \"safe to adopt X?\", \"deep-dive this package before i add it\", \"due diligence on X\", plus catch-all 'names an npm package with \"before i adopt/switch/add\"', and ends 'Pairs with the pkg-scout agent.'"
+        },
+        {
+          "text": "Skill spells out the task-tool delegation contract",
+          "passed": true,
+          "evidence": "SKILL.md '## Delegation' specifies the task-tool spawn field by field: `context` = shared contract (quoted verbatim, incl. 'Research only \u2014 never install'), `task` = self-contained assignment ('pkg-scout has no conversation history, so everything it needs goes here'), `solutionSpace` = 'open-ended research \u2014 the findings are unknown up front'. Adds batch rule: 'Vetting two packages to compare = ONE spawn with the comparison named in `task`, not two.'"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 6,
+        "failed": 0,
+        "total": 6,
+        "time_seconds": 95.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Run read the fixture files before producing output",
+          "passed": true,
+          "evidence": "Transcript history://ws-e3-skill shows reads of input-files/cc-src/SKILL.md (ok \u00b7 25 lines) and input-files/cc-src/agent.md (ok \u00b7 20 lines) before any writes. (It first probed input-files/SKILL.md \u2014 not found \u2014 then globbed and hit the correct cc-src/ paths.) Also read the agent-craft SKILL.md and pair-templates.md before writing."
+        },
+        {
+          "text": "Outputs use omp-native locations, no .claude/agents",
+          "passed": true,
+          "evidence": "Outputs tree contains exactly .agents/skills/dr-eggbot/SKILL.md and .omp/agent/agents/dr-eggbot.md under the fake HOME root; `grep -rn '\\.claude'` over with_skill/outputs returns zero hits. Body text references only ~/.agents/skills/<name>/SKILL.md and ~/.omp/agent/agents/<name>.md; 'claude' appears only as instructional porting guidance ('port this claude code skill/subagent to omp'), never as a path."
+        },
+        {
+          "text": "Agent frontmatter omp-valid (name, description; translated tools)",
+          "passed": true,
+          "evidence": "dr-eggbot.md frontmatter is `name: dr-eggbot`, `description: Delegate when the user wants to design, create, port, or refine a focused assistant role as an omp skill+agent pair.`, `tools: read, grep, glob, write, edit` \u2014 exact lowercase translation of the fixture's Read, Grep, Glob, Write, Edit; no model line, no invented/unsupported fields."
+        },
+        {
+          "text": "Pair-creation job preserved",
+          "passed": true,
+          "evidence": "Agent body: 'Your one job: designing high-quality focused assistant roles and creating them yourself as omp skill+agent pairs \u2014 ~/.agents/skills/<name>/SKILL.md + ~/.omp/agent/agents/<name>.md'. The skill side upgrades the fixture's single-file job to full pair-creation: it interviews, then delegates via the task tool to the dr-eggbot agent with the omp install contract spelled out in `context`, assignment in `task`, and openness in `solutionSpace`, plus wire-up steps (which agent to spawn, context vs task, done-looks-like)."
+        },
+        {
+          "text": "Mad-scientist lowercase voice preserved",
+          "passed": true,
+          "evidence": "Skill body is short lowercase with lab metaphors: 'this skill owns the conversation: it interviews the user... you gather specimens; it grows them', 'never hand the lab a half-guessed job'. Agent body keeps 'Voice: casual, a little mad-scientist, short lowercase' and adds 'never write \"model: inherit\", that's claude-speak'. Fixture staples preserved (poteto-mode bar, anti-templates, bias-to-act)."
+        },
+        {
+          "text": "No verbatim 'model: inherit' mishandling",
+          "passed": true,
+          "evidence": "Neither output file's frontmatter contains a model line. The only 'model: inherit' literals are explicit teaching warnings, not copied values: SKILL.md line 22 'drop `model: inherit` \u2014 in omp, omitting model already inherits. never paste it verbatim.' and agent body 'never write \"model: inherit\", that's claude-speak'. Correct omp semantics (omission = inherit) stated in both files."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 4,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 117.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Both skill and agent created (a pair)",
+          "passed": true,
+          "evidence": "outputs contains exactly two authored artifacts forming the pair: .agents/skills/repo-triage/SKILL.md (trigger/interview/delegation skill) and .omp/agent/agents/repo-triage.md (task agent). The skill's '## Delegation' section spawns the repo-triage agent by name via the task tool, and the transcript confirms both writes with no scaffolding beyond the pair."
+        },
+        {
+          "text": "Agent frontmatter includes autoloadSkills naming omp-setup",
+          "passed": true,
+          "evidence": "repo-triage.md frontmatter line 5: `autoloadSkills: omp-setup` (scalar form, matching agent-craft's documented 'CSV of skill names' contract; omp accepts this form per omp://slash-command-internals.md:554 example)."
+        },
+        {
+          "text": "Agent at home/.omp/agent/agents/repo-triage.md, skill at home/.agents/skills/",
+          "passed": true,
+          "evidence": "Verified on disk with outputs/ as fake HOME: outputs/.omp/agent/agents/repo-triage.md and outputs/.agents/skills/repo-triage/SKILL.md \u2014 the user-level layout agent-craft's install table prescribes."
+        },
+        {
+          "text": "Skill spells out the task-tool delegation contract",
+          "passed": true,
+          "evidence": "SKILL.md '## Delegation' opens 'spawn the **repo-triage** agent via the task tool' and gives an explicit task(context=..., tasks=[{ agent: \"repo-triage\", task: ..., solutionSpace: ... }]) block, then defines what context (repo root, read-only constraint, report shape), task (self-contained scope/focus/flags), and solutionSpace carry, plus '## Done looks like' specifying the six-section returned report \u2014 which agent, what to pass where, and what a finished job returns."
+        },
+        {
+          "text": "Agent has one-job statement and anti-jobs",
+          "passed": true,
+          "evidence": "One-job statement: 'you are the triage tech. one job: sweep a repo and return one honest report on what it is, how it's wired, and where it rots.' Anti-jobs present in substance (unlabeled): 'never install, never build, never commit, never edit anything, never spawn anything', 'bias to report, not fix', 'no files written to the repo'."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 7,
+        "failed": 0,
+        "total": 7,
+        "time_seconds": 147.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Skill at home/.agents/skills/<name>/SKILL.md with valid frontmatter",
+          "passed": true,
+          "evidence": "File exists at outputs/.agents/skills/done-with-changes/SKILL.md. Frontmatter parses as valid YAML with exactly {name, description}; description encodes the trigger: 'Use when the user signals the current changes are finished \u2014 \"I'm done\", \"done with changes\", \"ready to commit\" \u2014 or asks for the commit message.' Name is 'done-with-changes', not 'commit-scribe', but the assertion's <name> placeholder accepts any name and the agent (not the skill) carries the commit-scribe identity."
+        },
+        {
+          "text": "Agent at home/.omp/agent/agents/commit-scribe.md with omp frontmatter",
+          "passed": true,
+          "evidence": "File exists at outputs/.omp/agent/agents/commit-scribe.md. Frontmatter parses as valid YAML with keys {name, description, model, tools} \u2014 exactly the documented omp task-agent fields (omp://task-agent-discovery.md: required name/description, optional tools, model), at the documented user agent root ~/.omp/agent/agents/*.md."
+        },
+        {
+          "text": "Agent model is zai/glm-5.3-flash",
+          "passed": true,
+          "evidence": "YAML-parsed frontmatter model field is exactly 'zai/glm-5.3-flash' (agent file: 'model: zai/glm-5.3-flash')."
+        },
+        {
+          "text": "Skill delegates to the agent via the task tool by name",
+          "passed": true,
+          "evidence": "SKILL.md section 2: 'Dispatch one `task` call with `agent: \"commit-scribe\"`', with the task text carrying 'repository root, the scope, the diff or summary, the recent-log sample' and a solutionSpace line. Skill states 'Do not write the message yourself.'"
+        },
+        {
+          "text": "Anti-emoji requirement encoded",
+          "passed": true,
+          "evidence": "Encoded in the agent \u2014 the sole message writer: 'Write plain prose: no emoji, no emoticons, no decorative unicode anywhere in the message \u2014 subject, body, scopes, and trailers alike.' However the SKILL.md itself contains no emoji mention at all (the constraint is not repeated in the skill or its hand-off), so it passes only because the assertion doesn't specify location \u2014 noted in eval_feedback."
+        },
+        {
+          "text": "No Claude-Code-only frontmatter / tool casing",
+          "passed": true,
+          "evidence": "Full-text scan of both files found no 'allowed-tools', no Claude/sonnet/opus/haiku strings. Frontmatter uses only omp keys (name/description/model/tools); tools list is lowercase CSV 'read, bash, grep, glob' per omp docs ('tools accepts CSV or array'); delegation references omp's 'task' tool."
+        },
+        {
+          "text": "Nothing written outside the outputs tree",
+          "passed": true,
+          "evidence": "Recursive listing of the without_skill run dir shows only timing.json and outputs/ containing exactly the two expected files (.agents/skills/done-with-changes/SKILL.md, .omp/agent/agents/commit-scribe.md). Transcript records writes only to those two outputs paths; no metrics.json, user_notes.md, or stray files."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 6,
+        "failed": 0,
+        "total": 6,
+        "time_seconds": 412.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Both skill and agent created (a pair)",
+          "passed": true,
+          "evidence": "Outputs tree contains exactly the two artifacts: .agents/skills/pkg-scout/SKILL.md and .omp/agent/agents/pkg-scout.md, both with complete frontmatter and substantial bodies. Linked as a pair: the skill's workflow step 2 says 'Delegate the legwork to the `pkg-scout` agent' with a ready-made task brief, and the agent's autoloadSkills references the same skill with a skill://pkg-scout re-read fallback."
+        },
+        {
+          "text": "Skill covers license, maintenance, last release, red flags",
+          "passed": true,
+          "evidence": "SKILL.md covers all four operationally: license compatibility ('Cite the SPDX id from the latest manifest', HIGH flag for absent/incompatible license, MEDIUM for version-range license flip); maintenance ('Publish timeline', cadence collapse, maintainer turnover/bus factor); last release ('npm view <pkg> time --json', 'No publish in >=18 months'); red flags as a severity-graded catalog (HIGH/MEDIUM/LOW: deprecation, install lifecycle scripts, typosquat shape, hijack patterns like event-stream/ua-parser-js). Report template has dedicated License/Maintenance/Red flags sections."
+        },
+        {
+          "text": "Agent tools are omp-appropriate (web_search/read), no leftovers",
+          "passed": true,
+          "evidence": "Agent frontmatter: 'tools: read, grep, glob, bash, web_search'. No write/edit/task leftovers \u2014 the transcript states these are 'deliberately omitted, so it's read-only and cannot spawn children'. The extras are load-bearing, not template residue: bash runs the entire data-source table (npm view, curl registry/downloads/GitHub API, tarball listing without install), grep/glob support the 'read its package.json for the intended version range' context step. web_search and read are both present. Caveat: the assertion's '(web_search/read)' parenthetical reads like an exhaustive pair, so this passes only under the 'no mutating/spawning leftovers' reading \u2014 flagged in eval_feedback."
+        },
+        {
+          "text": "Agent has one-job statement and anti-jobs",
+          "passed": true,
+          "evidence": "One-job statement: 'You are **pkg-scout**, a read-only npm package vetting worker... You produce evidence-backed adoption reports and nothing else.' Anti-jobs are an explicit Hard rules block: 'You never edit files, never run `npm install` or `npx`, and never execute code from the package or its tarball.' plus 'never retry-spam' on rate limits, 'A failed fetch or missing field is `[UNKNOWN \u2014 reason]`, never a guess', and 'do not block on questions (you have no peer channel)'."
+        },
+        {
+          "text": "Skill description is pushy/trigger-rich",
+          "passed": true,
+          "evidence": "Description opens with the full capability list ('license, maintenance and release cadence, downloads trend, repo health, install-script and supply-chain red flags, alternatives') then enumerates trigger framings: 'Use whenever the user is about to adopt or choose an npm package, asks whether a package is maintained, safe, or trustworthy, asks to vet, audit, deep-dive, or evaluate a dependency, asks about a package's license or maintainers, or compares npm packages as candidates \u2014 even if they never say \"vet\" or \"scout\".' The 'even if they never say' clause is maximally pushy."
+        },
+        {
+          "text": "Skill spells out the task-tool delegation contract",
+          "passed": true,
+          "evidence": "Workflow step 2 embeds a concrete task-tool JSON brief showing every field: `context` ('Shared use case and constraints'), `tasks[]` with `agent: \"pkg-scout\"`, `task` ('Vet npm package <name>[@<version>]... Context: <...>'), `solutionSpace`; plus batching rule 'One task per package, all packages in a single batch (parallel)' and a fallback: 'If `pkg-scout` is not in the task tool's agent list... run the procedure below inline instead.'"
+        }
+      ],
+      "notes": [
+        "Baseline's suggested checks for Main (omp skill list / agents roster showing pkg-scout) were not run by the executor and remain open"
+      ]
+    },
+    {
+      "eval_id": 3,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 6,
+        "failed": 0,
+        "total": 6,
+        "time_seconds": 180.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Run read the fixture files before producing output",
+          "passed": true,
+          "evidence": "Transcript history://ws-e3-base shows reads of input-files/cc-src/SKILL.md (ok \u00b7 25 lines) and input-files/cc-src/agent.md (ok \u00b7 20 lines) before any writes. (Same wrong-path probe of input-files/SKILL.md first, recovered via glob.) It then researched omp conventions independently: skills/omp-setup/SKILL.md and skills/ticket-driven-development/agents/tdd-apprentice.md as a frontmatter format reference."
+        },
+        {
+          "text": "Outputs use omp-native locations, no .claude/agents",
+          "passed": true,
+          "evidence": "Outputs tree contains exactly .agents/skills/dr-eggbot/SKILL.md and .omp/agent/agents/dr-eggbot.md under the fake HOME root; `grep -rn '\\.claude'` over without_skill/outputs returns zero hits. Body text references only ~/.agents/skills/<name>/SKILL.md and ~/.omp/agent/agents/<name>.md; the word 'claude' does not appear in either output file."
+        },
+        {
+          "text": "Agent frontmatter omp-valid (name, description; translated tools)",
+          "passed": true,
+          "evidence": "dr-eggbot.md frontmatter is `name: dr-eggbot`, `description: Delegate when the user wants to design, create, or refine a focused assistant role (an omp skill, an omp agent, or a full skill+agent pair).`, `tools: read,glob,grep,write,edit` \u2014 the fixture's Read/Grep/Glob/Write/Edit translated to omp lowercase CSV; no model line, no unsupported fields."
+        },
+        {
+          "text": "Pair-creation job preserved",
+          "passed": true,
+          "evidence": "Agent body: 'Your one job is designing high-quality focused assistant roles and creating them as omp files (a skill in ~/.agents/skills/<name>/SKILL.md and/or an agent in ~/.omp/agent/agents/<name>.md). Default to the full pair \u2014 both files, one creature.' The skill body mirrors this ('Default is the full pair... two halves of one creature') and adds omp wiring guidance including self-delegation via `task` with `agent: dr-eggbot`. Original single-file job correctly generalized to pairs per the prompt."
+        },
+        {
+          "text": "Mad-scientist lowercase voice preserved",
+          "passed": true,
+          "evidence": "Skill body: 'two halves of one creature', 'every creature you build has the same constraint you have', 'the pair has its own twin... same brain, no user channel', Voice section 'casual, a little mad-scientist, short lowercase'. Agent body keeps fixture structure and adds 'your creatures inherit your cage: no user conversation'. Fixture staples (poteto-mode bar, anti-templates, bias-to-act) intact."
+        },
+        {
+          "text": "No verbatim 'model: inherit' mishandling",
+          "passed": true,
+          "evidence": "No 'model: inherit' literal anywhere in without_skill outputs (grep confirms zero hits). The rule is correctly translated in both files: 'no `model` line unless the user picks a model; omitting it runs the agent on the session default' (SKILL.md) and 'omitted means the session default' (agent body). Neither frontmatter carries a model value."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 4,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.6,
+        "passed": 3,
+        "failed": 2,
+        "total": 5,
+        "time_seconds": 302.0,
+        "tokens": 0,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Both skill and agent created (a pair)",
+          "passed": false,
+          "evidence": "Two agents were authored (.omp/agent/agents/repo-triage.md lead + repo-scout.md investigator \u2014 an agent+agent pair), but no repo-triage skill was created. The only skill under home/.agents/skills/ is omp-setup/SKILL.md, byte-identical (sha256 117a7ad80e82\u2026, re-verified) to the pre-existing canonical omp-setup skill \u2014 a copy of an existing skill, not a created one, and not paired with the agent: omp-setup never references repo-triage, and delegation is wired agent\u2192agent via `spawns: repo-scout`, not skill\u2192agent."
+        },
+        {
+          "text": "Agent frontmatter includes autoloadSkills naming omp-setup",
+          "passed": true,
+          "evidence": "repo-triage.md frontmatter: `autoloadSkills:` (list) containing `- omp-setup`; the field is real (omp://task-agent-discovery.md:47) and both scalar and list forms appear in omp docs/examples."
+        },
+        {
+          "text": "Agent at home/.omp/agent/agents/repo-triage.md, skill at home/.agents/skills/",
+          "passed": true,
+          "evidence": "Verified on disk: outputs/.omp/agent/agents/repo-triage.md and a skill at outputs/.agents/skills/omp-setup/SKILL.md. Paths are literally correct; note the skill is the copied canonical omp-setup, not an authored repo-triage skill (penalized under assertion 1/4, not here)."
+        },
+        {
+          "text": "Skill spells out the task-tool delegation contract",
+          "passed": false,
+          "evidence": "The only skill present is the verbatim canonical omp-setup SKILL.md, which covers provisioning/config conventions and contains no task-tool delegation contract (no agent to spawn, no context/task split). The delegation contract exists but lives in the agent file's '# Partner contract' section ('Batch independent dives into a single task call with agent: \"repo-scout\"'), not in a skill. No authored skill spells out the contract."
+        },
+        {
+          "text": "Agent has one-job statement and anti-jobs",
+          "passed": true,
+          "evidence": "repo-triage.md lead: single-deliverable one-job statement \u2014 'return ONE structured triage report as your final message \u2014 that message is the deliverable the requesting session receives'. Anti-jobs in substance under '# Guardrails': 'Read-only on the target repo: no edits, writes, deletes, installs, or network fetches', 'A claim without evidence is a hypothesis', 'never end with a plan, a question, or a promise of follow-up work' (last one in the opening paragraph)."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 1.0,
+        "stddev": 0.0,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 113.0,
+        "stddev": 14.1421,
+        "min": 95.0,
+        "max": 129.0
+      },
+      "tokens": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.9,
+        "stddev": 0.2,
+        "min": 0.6,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 260.25,
+        "stddev": 121.1566,
+        "min": 147.0,
+        "max": 412.0
+      },
+      "tokens": {
+        "mean": 0.0,
+        "stddev": 0.0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.10",
+      "time_seconds": "-147.2",
+      "tokens": "+0"
+    }
+  },
+  "notes": []
+}

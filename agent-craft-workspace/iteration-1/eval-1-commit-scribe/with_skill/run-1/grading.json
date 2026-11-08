@@ -1,0 +1,120 @@
+{
+  "expectations": [
+    {
+      "text": "Skill at home/.agents/skills/<name>/SKILL.md with valid frontmatter",
+      "passed": true,
+      "evidence": "File exists at outputs/.agents/skills/commit-scribe/SKILL.md. Frontmatter parses as valid YAML with exactly {name, description}; name is 'commit-scribe' matching the directory, and the description enumerates trigger phrases ('I'm done with changes', 'done with my changes', 'changes are done', 'write the commit message', ...)."
+    },
+    {
+      "text": "Agent at home/.omp/agent/agents/commit-scribe.md with omp frontmatter",
+      "passed": true,
+      "evidence": "File exists at outputs/.omp/agent/agents/commit-scribe.md. Frontmatter parses as valid YAML with keys {name, description, model, tools} — exactly the documented omp task-agent fields (omp://task-agent-discovery.md: required name/description, optional tools, model), and the path matches the documented user agent root ~/.omp/agent/agents/*.md."
+    },
+    {
+      "text": "Agent model is zai/glm-5.3-flash",
+      "passed": true,
+      "evidence": "YAML-parsed frontmatter model field is exactly 'zai/glm-5.3-flash' (agent file line 3: 'model: zai/glm-5.3-flash')."
+    },
+    {
+      "text": "Skill delegates to the agent via the task tool by name",
+      "passed": true,
+      "evidence": "SKILL.md '## Delegation' section shows an explicit task-tool invocation naming the agent: task(context=\"<shared contract>\", tasks=[{ agent: \"commit-scribe\", task: \"<self-contained assignment>\", solutionSpace: \"...\" }]), with the context carrying the no-emoji/no-push constraints and the return contract. Skill states 'the skill never writes the message itself.'"
+    },
+    {
+      "text": "Anti-emoji requirement encoded",
+      "passed": true,
+      "evidence": "Encoded redundantly on both sides. Skill: delegation context constraint 'zero emoji or decorative unicode in the message', 'Done looks like: ... zero emoji', and anti-jobs 'never lets emoji or decorative unicode into a commit message. non-negotiable, overrides any house style'. Agent: step 3 'hard rule: zero emoji, zero decorative unicode', anti-jobs 'no emoji ever', voice 'no emoji anywhere'."
+    },
+    {
+      "text": "No Claude-Code-only frontmatter / tool casing",
+      "passed": true,
+      "evidence": "Full-text scan of both files found no 'allowed-tools', no Claude/sonnet/opus/haiku strings. Frontmatter uses only omp keys (name/description/model/tools); tools list is lowercase CSV 'read, grep, glob, bash' per omp docs ('tools accepts CSV or array'); delegation uses omp's 'task' tool name."
+    },
+    {
+      "text": "Nothing written outside the outputs tree",
+      "passed": true,
+      "evidence": "Recursive listing of the with_skill run dir shows only timing.json and outputs/ containing exactly the two expected files (.agents/skills/commit-scribe/SKILL.md, .omp/agent/agents/commit-scribe.md). Transcript records writes only to those two outputs paths; no metrics.json, user_notes.md, or stray files."
+    }
+  ],
+  "summary": {
+    "passed": 7,
+    "failed": 0,
+    "total": 7,
+    "pass_rate": 1.0
+  },
+  "timing": {
+    "executor_duration_seconds": 111.0
+  },
+  "claims": [
+    {
+      "claim": "Skill runs git status/diff --stat first so a clean tree never spawns anything",
+      "type": "process",
+      "verified": true,
+      "evidence": "SKILL.md 'Before delegating': 'run, don't ask: git status --porcelain and git diff HEAD --stat ... clean tree -> tell the user there's nothing to commit and stop. no spawn.' plus anti-job 'never spawns when the working tree is clean.'"
+    },
+    {
+      "claim": "Interview asks at most two questions (scope; commit vs draft-only, remembered per session)",
+      "type": "factual",
+      "verified": true,
+      "evidence": "SKILL.md 'interview — only what can't be inferred, at most two questions:' lists exactly those two."
+    },
+    {
+      "claim": "Anti-emoji encoded twice — skill's constraints/delegation and agent's steps and anti-jobs",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Skill context constraint + anti-jobs; agent step 3 hard rule + anti-jobs + voice, all quoted under expectation 5."
+    },
+    {
+      "claim": "Both files use only omp-native frontmatter (lowercase tool names, no Claude-isms)",
+      "type": "factual",
+      "verified": true,
+      "evidence": "YAML parse of both frontmatter blocks yields only name/description/model/tools; substring scan for allowed-tools, Claude, sonnet/opus/haiku returned no hits."
+    },
+    {
+      "claim": "Agent frontmatter grants read/grep/glob/bash only (no write/edit — can't modify code)",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Agent tools: 'read, grep, glob, bash'; body also forbids it: 'never modify code or any file outside the commit itself'."
+    },
+    {
+      "claim": "Agents hot-reload, so edits to either file apply mid-session",
+      "type": "factual",
+      "verified": true,
+      "evidence": "omp://task-agent-discovery.md: 'Task/eval preflight reloads the current global, project, and explicit overlay settings before rediscovering agents, so agent files ... added during a live session resolve from one refreshed configuration.'"
+    },
+    {
+      "claim": "Nothing was written outside the outputs tree",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Recursive directory listing confirms only the two output files plus timing.json in the run dir."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "reason": "No assertion checks that the skill actually catches the user's phrase 'I'm done with changes' — the core user requirement. Both runs happened to include it in the skill description/trigger list, but a skill named e.g. 'git-helper' with a description never mentioning the phrase would pass all 7 assertions. Add: skill description or body matches the 'done with changes' trigger phrase."
+      },
+      {
+        "reason": "No assertion covers the 'gathers anything needed' half of the prompt — that the skill inspects git state (status/diff/log) before delegating and aborts on a clean tree. A skill that blindly spawns on every 'done' would pass. Add: skill instructs running git status/diff before the task call."
+      },
+      {
+        "assertion": "Anti-emoji requirement encoded",
+        "reason": "Doesn't specify where it must be encoded, so a single mention anywhere passes. This run encodes it in both skill and agent; the without_skill run encodes it only in the agent body (its SKILL.md never mentions emoji) — a defense-in-depth difference the assertion cannot distinguish. Consider requiring the constraint in the skill's delegation context so the hand-off carries it even if the agent template is swapped."
+      },
+      {
+        "assertion": "Skill delegates to the agent via the task tool by name",
+        "reason": "A delegation snippet naming the agent but passing no gathered state (diff, scope, repo root) would also pass, yet the context-less subagent would then hallucinate the message. Strengthen by requiring the hand-off to carry the gathered diff/scope/style sample."
+      },
+      {
+        "assertion": "Skill at home/.agents/skills/<name>/SKILL.md with valid frontmatter",
+        "reason": "'Valid frontmatter' is weakly defined — any parseable name+description pair passes, and the <name> placeholder accepts any skill name including one unrelated to the task."
+      }
+    ],
+    "overall": "Assertions verify structure (paths, frontmatter, model pin, delegation-by-name, emoji rule present, no Claude-isms, no stray writes) and all pass here with genuine substance. Gaps: nothing grades behavioral correctness — trigger-phrase coverage, the gather step, and hand-off payload quality are unmeasured, and the anti-emoji check doesn't pin encoding location."
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "expectations": [
+    {
+      "text": "Both skill and agent created (a pair)",
+      "passed": false,
+      "evidence": "Two agents were authored (.omp/agent/agents/repo-triage.md lead + repo-scout.md investigator — an agent+agent pair), but no repo-triage skill was created. The only skill under home/.agents/skills/ is omp-setup/SKILL.md, byte-identical (sha256 117a7ad80e82…, re-verified) to the pre-existing canonical omp-setup skill — a copy of an existing skill, not a created one, and not paired with the agent: omp-setup never references repo-triage, and delegation is wired agent→agent via `spawns: repo-scout`, not skill→agent."
+    },
+    {
+      "text": "Agent frontmatter includes autoloadSkills naming omp-setup",
+      "passed": true,
+      "evidence": "repo-triage.md frontmatter: `autoloadSkills:` (list) containing `- omp-setup`; the field is real (omp://task-agent-discovery.md:47) and both scalar and list forms appear in omp docs/examples."
+    },
+    {
+      "text": "Agent at home/.omp/agent/agents/repo-triage.md, skill at home/.agents/skills/",
+      "passed": true,
+      "evidence": "Verified on disk: outputs/.omp/agent/agents/repo-triage.md and a skill at outputs/.agents/skills/omp-setup/SKILL.md. Paths are literally correct; note the skill is the copied canonical omp-setup, not an authored repo-triage skill (penalized under assertion 1/4, not here)."
+    },
+    {
+      "text": "Skill spells out the task-tool delegation contract",
+      "passed": false,
+      "evidence": "The only skill present is the verbatim canonical omp-setup SKILL.md, which covers provisioning/config conventions and contains no task-tool delegation contract (no agent to spawn, no context/task split). The delegation contract exists but lives in the agent file's '# Partner contract' section ('Batch independent dives into a single task call with agent: \"repo-scout\"'), not in a skill. No authored skill spells out the contract."
+    },
+    {
+      "text": "Agent has one-job statement and anti-jobs",
+      "passed": true,
+      "evidence": "repo-triage.md lead: single-deliverable one-job statement — 'return ONE structured triage report as your final message — that message is the deliverable the requesting session receives'. Anti-jobs in substance under '# Guardrails': 'Read-only on the target repo: no edits, writes, deletes, installs, or network fetches', 'A claim without evidence is a hypothesis', 'never end with a plan, a question, or a promise of follow-up work' (last one in the opening paragraph)."
+    }
+  ],
+  "summary": {
+    "passed": 3,
+    "failed": 2,
+    "total": 5,
+    "pass_rate": 0.6
+  },
+  "timing": {
+    "executor_duration_seconds": 302.0,
+    "total_duration_seconds": 302.0
+  },
+  "claims": [
+    {
+      "claim": "Installed omp-setup copied verbatim, sha256-verified byte-identical to canonical",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Re-verified: sha256 117a7ad80e82f6cc826c482d62d12b7e23819b44a34495143eb1a0f256eab59d matches both /home/x20/.agents/skills/omp-setup/SKILL.md and skills/omp-setup/SKILL.md."
+    },
+    {
+      "claim": "autoloadSkills is omp's supported preload mechanism; unknown names are silently ignored",
+      "type": "factual",
+      "verified": true,
+      "evidence": "omp://task-agent-discovery.md:47: 'autoloadSkills names skills from the parent session to inject before the first child prompt; unknown names are ignored'; omp://slash-command-internals.md:562 concurs."
+    },
+    {
+      "claim": "Subagent sessions inherit the discovered skills list, so repo-scout can resolve skill://omp-setup on demand instead of carrying the injection",
+      "type": "factual",
+      "verified": true,
+      "evidence": "omp://skills.md:168: 'Task tool subagents receive the session's discovered/provided skills list via normal session creation.'"
+    },
+    {
+      "claim": "The pair needs task.maxRecursionDepth ≥ 2, which the default-profile default suffices for",
+      "type": "quality",
+      "verified": true,
+      "evidence": "Pair nests two levels (session→repo-triage→repo-scout); omp://slash-command-internals.md:563 documents task removal at max recursion depth, so the ≥2 requirement is consistent with documented behavior. The exact default value was not independently confirmed."
+    },
+    {
+      "claim": "repo-scout has no task tool, so nesting stops there",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Scout frontmatter `tools: read,grep,glob,find,bash` — no task; `spawns` omitted."
+    },
+    {
+      "claim": "A two-agent pair plus an omp-setup skill copy satisfies the user's 'agent pair' ask",
+      "type": "quality",
+      "verified": false,
+      "evidence": "The extra artifacts (second agent, copied skill) are internally consistent and omp-documented, but the eval defines the pair as an authored skill + agent wired via the task tool; graded strictly per assertions 1 and 4, which this architecture fails."
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "Both skill and agent created (a pair)",
+        "reason": "Ambiguous: 'pair' reads as two agents in the user's prompt ('an omp agent pair'), and the baseline half-passes any literal reading (a skill file does exist at home/.agents/skills/, agents exist). Tighten to: 'an authored repo-triage SKILL.md exists whose body names and spawns the repo-triage agent via the task tool' — that wording separates genuine pair creation from a skill copy plus agent-agent wiring."
+      },
+      {
+        "assertion": "Agent at home/.omp/agent/agents/repo-triage.md, skill at home/.agents/skills/",
+        "reason": "Non-discriminating on its own: copying any skill into home/.agents/skills/ satisfies it, as this run demonstrated. Fold a content check into it or drop it in favor of assertions 2/4."
+      },
+      {
+        "assertion": "Skill spells out the task-tool delegation contract",
+        "reason": "This is the most discriminating assertion in the set — it is exactly where the baseline's no-skill architecture fails. Keep it, and consider also asserting the contract appears in the skill (not the agent), since this run moved the contract into the agent's '# Partner contract' section."
+      },
+      {
+        "reason": "No coverage for functional preload resolution: neither run is checked on whether the autoloaded skill is actually discoverable (this run installed it; the with_skill run did not verify). An assertion that 'the skill named in autoloadSkills resolves under home/.agents/skills/' would credit the genuinely useful extra step observed here."
+      }
+    ],
+    "overall": "Assertion 4 cleanly discriminates; assertions 1 and 3 leak passes to a copy-instead-of-author strategy, and the eval never checks preload resolvability or agent tool discipline."
+  }
+}

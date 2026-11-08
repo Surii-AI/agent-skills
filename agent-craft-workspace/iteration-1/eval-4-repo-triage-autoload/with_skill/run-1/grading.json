@@ -1,0 +1,90 @@
+{
+  "expectations": [
+    {
+      "text": "Both skill and agent created (a pair)",
+      "passed": true,
+      "evidence": "outputs contains exactly two authored artifacts forming the pair: .agents/skills/repo-triage/SKILL.md (trigger/interview/delegation skill) and .omp/agent/agents/repo-triage.md (task agent). The skill's '## Delegation' section spawns the repo-triage agent by name via the task tool, and the transcript confirms both writes with no scaffolding beyond the pair."
+    },
+    {
+      "text": "Agent frontmatter includes autoloadSkills naming omp-setup",
+      "passed": true,
+      "evidence": "repo-triage.md frontmatter line 5: `autoloadSkills: omp-setup` (scalar form, matching agent-craft's documented 'CSV of skill names' contract; omp accepts this form per omp://slash-command-internals.md:554 example)."
+    },
+    {
+      "text": "Agent at home/.omp/agent/agents/repo-triage.md, skill at home/.agents/skills/",
+      "passed": true,
+      "evidence": "Verified on disk with outputs/ as fake HOME: outputs/.omp/agent/agents/repo-triage.md and outputs/.agents/skills/repo-triage/SKILL.md — the user-level layout agent-craft's install table prescribes."
+    },
+    {
+      "text": "Skill spells out the task-tool delegation contract",
+      "passed": true,
+      "evidence": "SKILL.md '## Delegation' opens 'spawn the **repo-triage** agent via the task tool' and gives an explicit task(context=..., tasks=[{ agent: \"repo-triage\", task: ..., solutionSpace: ... }]) block, then defines what context (repo root, read-only constraint, report shape), task (self-contained scope/focus/flags), and solutionSpace carry, plus '## Done looks like' specifying the six-section returned report — which agent, what to pass where, and what a finished job returns."
+    },
+    {
+      "text": "Agent has one-job statement and anti-jobs",
+      "passed": true,
+      "evidence": "One-job statement: 'you are the triage tech. one job: sweep a repo and return one honest report on what it is, how it's wired, and where it rots.' Anti-jobs present in substance (unlabeled): 'never install, never build, never commit, never edit anything, never spawn anything', 'bias to report, not fix', 'no files written to the repo'."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  },
+  "timing": {
+    "executor_duration_seconds": 117.0,
+    "total_duration_seconds": 117.0
+  },
+  "claims": [
+    {
+      "claim": "Agent tools limited to read, grep, glob, bash — no write/edit/task",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Frontmatter `tools: read, grep, glob, bash`; no write/edit/task present."
+    },
+    {
+      "claim": "Model omitted so the agent inherits the parent session's model",
+      "type": "factual",
+      "verified": true,
+      "evidence": "No model field in frontmatter; agent-craft SKILL.md documents omission = inherit in omp."
+    },
+    {
+      "claim": "Skill written first, agent second, per the skill's workflow",
+      "type": "process",
+      "verified": true,
+      "evidence": "Transcript write order: .agents/skills/repo-triage/SKILL.md before .omp/agent/agents/repo-triage.md."
+    },
+    {
+      "claim": "No scaffolding beyond the pair",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Full outputs tree is only the two files; nothing else under the fake HOME."
+    },
+    {
+      "claim": "Preloaded omp-setup instructions are injected before the agent's first prompt",
+      "type": "quality",
+      "verified": true,
+      "evidence": "Mechanism documented (omp://task-agent-discovery.md:47: autoloadSkills names skills injected before the first child prompt) and omp-setup exists at user level on this host (/home/x20/.agents/skills/omp-setup), so the name resolves; note omp silently ignores unknown names, and the run never verified resolvability itself."
+    }
+  ],
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "Agent at home/.omp/agent/agents/repo-triage.md, skill at home/.agents/skills/",
+        "reason": "Near-non-discriminating as written: any file at those paths passes. The baseline run passed this assertion by copying a pre-existing skill into home/.agents/skills/. Require content, e.g. skill frontmatter name = repo-triage and the skill referencing the agent by name."
+      },
+      {
+        "assertion": "Agent has one-job statement and anti-jobs",
+        "reason": "Doesn't pin where the one-job statement and anti-jobs must live or their form. The baseline's lead agent passes on substance via an unlabeled '# Guardrails' section, while this run put the labeled '## Anti-jobs' section in the skill rather than the agent. Specify 'in the agent body' plus explicit prohibitions to remove grader judgment."
+      },
+      {
+        "reason": "No assertion checks that the autoloaded skill actually resolves at user level. omp silently ignores unknown autoloadSkills names (omp://task-agent-discovery.md:47), so a typo'd preload would no-op invisibly. An assertion like 'the named skill exists under home/.agents/skills/ (or is a known canonical skill)' would catch silent preload failures — the baseline run did this check, this run did not."
+      },
+      {
+        "reason": "No assertion covers read-only tool discipline on the agent (tools excluding write/edit), which is central to a triage agent's safety and which both runs implemented differently (read,grep,glob,bash vs read,grep,glob,find,bash,task)."
+      }
+    ],
+    "overall": "Assertions all pass with genuine substance, but assertion 3 is satisfied by file placement alone and assertion 5 is under-specified; the eval's discriminating power currently rests on assertion 4."
+  }
+}

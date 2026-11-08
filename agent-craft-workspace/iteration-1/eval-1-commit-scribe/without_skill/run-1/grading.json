@@ -1,0 +1,113 @@
+{
+  "expectations": [
+    {
+      "text": "Skill at home/.agents/skills/<name>/SKILL.md with valid frontmatter",
+      "passed": true,
+      "evidence": "File exists at outputs/.agents/skills/done-with-changes/SKILL.md. Frontmatter parses as valid YAML with exactly {name, description}; description encodes the trigger: 'Use when the user signals the current changes are finished — \"I'm done\", \"done with changes\", \"ready to commit\" — or asks for the commit message.' Name is 'done-with-changes', not 'commit-scribe', but the assertion's <name> placeholder accepts any name and the agent (not the skill) carries the commit-scribe identity."
+    },
+    {
+      "text": "Agent at home/.omp/agent/agents/commit-scribe.md with omp frontmatter",
+      "passed": true,
+      "evidence": "File exists at outputs/.omp/agent/agents/commit-scribe.md. Frontmatter parses as valid YAML with keys {name, description, model, tools} — exactly the documented omp task-agent fields (omp://task-agent-discovery.md: required name/description, optional tools, model), at the documented user agent root ~/.omp/agent/agents/*.md."
+    },
+    {
+      "text": "Agent model is zai/glm-5.3-flash",
+      "passed": true,
+      "evidence": "YAML-parsed frontmatter model field is exactly 'zai/glm-5.3-flash' (agent file: 'model: zai/glm-5.3-flash')."
+    },
+    {
+      "text": "Skill delegates to the agent via the task tool by name",
+      "passed": true,
+      "evidence": "SKILL.md section 2: 'Dispatch one `task` call with `agent: \"commit-scribe\"`', with the task text carrying 'repository root, the scope, the diff or summary, the recent-log sample' and a solutionSpace line. Skill states 'Do not write the message yourself.'"
+    },
+    {
+      "text": "Anti-emoji requirement encoded",
+      "passed": true,
+      "evidence": "Encoded in the agent — the sole message writer: 'Write plain prose: no emoji, no emoticons, no decorative unicode anywhere in the message — subject, body, scopes, and trailers alike.' However the SKILL.md itself contains no emoji mention at all (the constraint is not repeated in the skill or its hand-off), so it passes only because the assertion doesn't specify location — noted in eval_feedback."
+    },
+    {
+      "text": "No Claude-Code-only frontmatter / tool casing",
+      "passed": true,
+      "evidence": "Full-text scan of both files found no 'allowed-tools', no Claude/sonnet/opus/haiku strings. Frontmatter uses only omp keys (name/description/model/tools); tools list is lowercase CSV 'read, bash, grep, glob' per omp docs ('tools accepts CSV or array'); delegation references omp's 'task' tool."
+    },
+    {
+      "text": "Nothing written outside the outputs tree",
+      "passed": true,
+      "evidence": "Recursive listing of the without_skill run dir shows only timing.json and outputs/ containing exactly the two expected files (.agents/skills/done-with-changes/SKILL.md, .omp/agent/agents/commit-scribe.md). Transcript records writes only to those two outputs paths; no metrics.json, user_notes.md, or stray files."
+    }
+  ],
+  "summary": {
+    "passed": 7,
+    "failed": 0,
+    "total": 7,
+    "pass_rate": 1.0
+  },
+  "timing": {
+    "executor_duration_seconds": 147.0
+  },
+  "claims": [
+    {
+      "claim": "Frontmatter model pins routing ('frontmatter model list is precedence step 2, so every spawn routes there')",
+      "type": "factual",
+      "verified": true,
+      "evidence": "omp://task-agent-discovery.md confirms frontmatter 'model accepts one selector, CSV, or an array' used for spawned agents. The effective claim (dispatch by name routes to the frontmatter model) holds; the precise 'step 2' ordering of the precedence list was not independently confirmed from available docs but doesn't affect the outcome."
+    },
+    {
+      "claim": "No `spawns` key, so the agent can't nest subagents and gets no task tool",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Agent tools are 'read, bash, grep, glob' (no task) and frontmatter omits spawns; omp://task-agent-discovery.md documents the inverse rule: 'if `spawns` missing but `tools` includes `task`, `spawns` becomes `*`' — with no task tool there is no nesting."
+    },
+    {
+      "claim": "Skill uses the correct skills/<name>/SKILL.md one-level layout for the .agents provider",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Layout .agents/skills/done-with-changes/SKILL.md matches the conventional layout both omp skills docs and the eval's own expectation describe."
+    },
+    {
+      "claim": "Skill gathers git state and stops on non-repo or clean tree",
+      "type": "process",
+      "verified": true,
+      "evidence": "SKILL.md section 1: 'git rev-parse --is-inside-work-tree — fails: say this is not a git repository and stop'; 'git status --porcelain — empty: there is nothing to commit; say so and stop.'"
+    },
+    {
+      "claim": "Clean division: skill never writes the message, agent never commits unless told",
+      "type": "quality",
+      "verified": true,
+      "evidence": "Skill: 'Do not write the message yourself' and 'Commit only on request' (skill runs git commit only when asked). Agent: 'You do not stage, commit, or edit code: the deliverable is the message, unless the hand-off explicitly says to run the commit.'"
+    },
+    {
+      "claim": "No attribution footers (Co-Authored-By, Generated-with) in messages",
+      "type": "factual",
+      "verified": true,
+      "evidence": "Agent hard rules: 'No attribution footers (Co-Authored-By, Generated-with, or similar).'"
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "Anti-emoji requirement encoded",
+        "reason": "Passes here with the rule encoded only in the agent body — the run's SKILL.md never mentions emoji, so the constraint isn't restated in the hand-off. That is acceptable since the agent is the sole message writer, but the assertion can't distinguish this single-point encoding from the with_skill run's redundancy (skill delegation context + agent). If defense-in-depth matters, require the constraint in the skill's delegation context too."
+      },
+      {
+        "reason": "No assertion checks that the skill catches the user's exact phrase 'I'm done with changes' — the core user requirement. This run covers it via description triggers ('done with changes'), but nothing would have failed had the skill keyed on unrelated phrases."
+      },
+      {
+        "reason": "No assertion covers the 'gathers anything needed' requirement (git status/diff/log before delegating, abort on clean tree). Both runs implement it, but a spawn-first skill would pass all 7 assertions."
+      },
+      {
+        "assertion": "Skill at home/.agents/skills/<name>/SKILL.md with valid frontmatter",
+        "reason": "'Valid frontmatter' accepts any parseable name+description; the <name> placeholder gives no coverage of the skill actually being named/described for this trigger scenario."
+      },
+      {
+        "reason": "This run's skill lets the skill itself run `git commit` on request while the agent is message-only; the with_skill run assigns committing to the agent. Both are coherent, but no assertion pins who executes the commit — a behavioral fork worth an explicit expectation if the intended design matters."
+      }
+    ],
+    "overall": "All 7 assertions pass with genuine substance (valid YAML frontmatter, exact model pin, named task delegation, emoji rule present, omp-native keys, clean tree). Gaps: assertions are structural only — trigger-phrase coverage, the gather step, hand-off payload, and commit-ownership split are unmeasured, and the anti-emoji check doesn't pin encoding location."
+  }
+}
